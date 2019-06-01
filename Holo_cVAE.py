@@ -197,7 +197,7 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cVAE"
 		
 	fourier_folder = "inFourier"
@@ -208,7 +208,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	#############################################################################
 
 	save_name = "HOLOVAE.ckpt"
@@ -220,7 +220,7 @@ def main(argv):
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 30
+	N_EPOCH = 20
 	N_LAT = 64
 	BETA = 1.0
 	## sample size

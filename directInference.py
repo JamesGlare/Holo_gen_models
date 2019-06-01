@@ -60,23 +60,23 @@ def kronecker_delta_8x8(A, i, j):
 def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 
 	# build dir paths
-	pred_fourier_folder = os.path.join(baseDir, "pred_fourier")
-	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_folder = os.path.join(baseDir, "real_fourier")
+	pred_fourier_folder = join(baseDir, "pred_fourier")
+	real_int_folder = join(baseDir, "real_int")
+	real_fourier_folder = join(baseDir, "real_fourier")
 
 	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_folder):
-		os.makedirs(pred_fourier_folder)
-	if not os.path.exists(real_int_folder):
-		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_folder):
-		os.makedirs(real_fourier_folder)
+	if not exists(pred_fourier_folder):
+		makedirs(pred_fourier_folder)
+	if not exists(real_int_folder):
+		makedirs(real_int_folder)
+	if not exists(real_fourier_folder):
+		makedirs(real_fourier_folder)
 
 	#build file paths
 	nr_string = '{0:05d}'.format(iterNr)
-	pathName_predFourier = os.path.join(pred_fourier_folder, nr_string+".txt")
-	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier= os.path.join(real_fourier_folder, nr_string+".txt")
+	pathName_predFourier = join(pred_fourier_folder, nr_string+".txt")
+	pathName_real_int = join(real_int_folder, nr_string+".txt")
+	pathName_real_fourier= join(real_fourier_folder, nr_string+".txt")
 
 	# save matrices
 	np.savetxt(pathName_predFourier, 100.0*pred_fourier, fmt="%.1f", delimiter='\t', newline='\n')
@@ -146,11 +146,11 @@ fourier_folder = "inFourier"
 input_folder = 	"in"
 output_folder = "out"
 
-### Change paths
-path = "/media/james/SSD2_JG754/040319_1W_0001s"
-out_path = "/media/james/SSD2_JG754/directInference"
-
-### 
+### Change paths ######################################################
+path ="C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
+out_path =  "C:\\Jannes\\learnSamples\\040319_validation\\directInference"
+N_VALID = 100
+#######################################################################
 
 
 def main(argv):
@@ -167,7 +167,7 @@ def main(argv):
 
 	x_rel = [ -0.20208729,  11.61005693]
 	y_rel = [ -0.15410618,  11.56273613]
-	N_VALID=100
+	
 	mu_y = lambda cy : int(restrict(y_rel[0]*cy + y_rel[1]))
 	mu_x = lambda cx : int(restrict(x_rel[0]*cx + x_rel[1]))
 	
@@ -181,8 +181,8 @@ def main(argv):
 	file_nr = 0
 	for file_name in files:	
 		
-		intensity = np.loadtxt(join(int_path, file_name), delimiter='\t', unpack=False)
-		fourier = np.loadtxt(join(fourier_path, file_name), delimiter='\t', unpack=False)
+		intensity = 1./255.*np.loadtxt(join(int_path, file_name), delimiter='\t', unpack=False)
+		fourier = 1./100.*np.loadtxt(join(fourier_path, file_name), delimiter='\t', unpack=False)
 		centroids = peak_loc_nr(intensity)
 		
 		#plt.figure()
@@ -194,12 +194,13 @@ def main(argv):
 			j = mu_x(cx)
 			i = mu_y(cy)
 		
-			print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
-			fourier_estimate[i,j] = 1.0/2.5*intensity[int(cy), int(cx)]
-		
+			#print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
+			value = float(1.0/2.5*intensity[int(cy), int(cx)])
+			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		## (3) plot
 		writeMatrices(out_path, file_nr, fourier_estimate, intensity, fourier) 
-		file_nr = file_nr +1
+		file_nr = file_nr + 1
+
 		if file_nr == N_VALID:
 			sys.exit()
 			
