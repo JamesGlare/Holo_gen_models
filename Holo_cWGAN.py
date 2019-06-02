@@ -92,7 +92,7 @@ def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_
 
 		c = tf.reshape(c3, [N_BATCH, 8,8,8])
 		## Now combine with the latent variables
-		z =tf.reshape(z, [N_BATCH, N_LAT]) # latent space - 64
+		z = tf.reshape(z, [N_BATCH, 8,8,1]) # latent space - 64
 		concat = tf.concat([z,c], 3) # concat along second dimension
 		
 		## go through additional conv layers to enforce locality in feedback
@@ -209,7 +209,7 @@ def main(argv):
 	N_VALID = 100
 	N_REDRAW = 5	
 	N_CRITIC = 5
-	N_EPOCH = 60
+	N_EPOCH = 40
 	N_LAT = 64
 	LAMBDA = 10
 	## sample size

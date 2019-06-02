@@ -135,7 +135,7 @@ def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		c2 = tf.nn.relu(c2) 
 		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 8 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8* 8* 8])
+		c = tf.reshape(c3, [N_BATCH, 8 * 8 * 8])
 		## combine reduced conditional variable with setup input - x
 		x = tf.reshape(x, [N_BATCH, 8*8]) # fourier space - 64
 		concat = tf.concat([x,c], 1) # concat along channel dimension
