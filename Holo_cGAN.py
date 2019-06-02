@@ -182,7 +182,7 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cGAN"
 	
 	## Check PATHS
@@ -198,7 +198,8 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
+	testSet = False
 	#############################################################################
 
 	save_name = "HOLOGAN.ckpt"
@@ -212,7 +213,7 @@ def main(argv):
 	N_VALID = 100	
 	N_CRITIC = 5
 	N_REDRAW = 5	
-	N_EPOCH = 60
+	N_EPOCH = 40
 	N_LAT = 64
 	BETA = 0.0
 	## sample size
@@ -264,6 +265,8 @@ def main(argv):
 	# Saver
 	saver = tf.train.Saver()	
 	print("Commencing training...")
+	if testSet:
+    	restore = True
 	""" --------------- Session ---------------------------------------------------------------------------"""	
 	with tf.Session() as sess:
 
@@ -326,8 +329,10 @@ def main(argv):
 					x_pred = sess.run(X_FAKE, feed_dict={ Y:y, Z:z, is_train: False}) 
 
 					## write the matrices to file
-					writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-		
+					if testSet:
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
+					else:				
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 

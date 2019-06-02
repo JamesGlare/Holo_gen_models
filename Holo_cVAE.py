@@ -209,6 +209,7 @@ def main(argv):
 
 	#############################################################################
 	restore = True ### Set this True to load model from disk instead of training
+	testSet = False
 	#############################################################################
 
 	save_name = "HOLOVAE.ckpt"
@@ -258,7 +259,8 @@ def main(argv):
 	# Saver
 	saver = tf.train.Saver()	
 	print("Commencing training...")
-
+	if testSet:
+    		restore = True
 	""" ---- TRAINING ------------"""
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())    
@@ -307,8 +309,10 @@ def main(argv):
 					x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
 
 					## write the matrices to file
-					writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
-		
+					if testSet:
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
+					else:				
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 if __name__ == "__main__":
