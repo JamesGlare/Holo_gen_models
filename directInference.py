@@ -159,8 +159,8 @@ input_folder = 	"in"
 output_folder = "out"
 
 ### Change paths ######################################################
-path ="C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
-out_path =  "C:\\Jannes\\learnSamples\\040319_validation\\directInference"
+path = "C:\\Jannes\\learnSamples\\250519_testSet"
+outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\directInference"
 N_VALID = 100
 #######################################################################
 
@@ -168,7 +168,7 @@ N_VALID = 100
 def main(argv):
 
 	## Check PATHS
-	if not exists(path) or not exists(out_path):
+	if not exists(path) or not exists(outPath):
 		print("PATH DOESN'T EXIST!")
 		sys.exit()
 
@@ -222,10 +222,10 @@ def main(argv):
 			i = mu_y(cy)
 		
 			#print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
-			value = float(1.0/2.5*intensity[int(cy), int(cx)])
+			value = float(2.0/2.5*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		## (3) plot
-		writeMatrices(out_path, nr, fourier_estimate, intensity, fourier) 
+		writeMatrices(outPath, nr, fourier_estimate, intensity, fourier) 
 
 			
 if __name__ == "__main__":

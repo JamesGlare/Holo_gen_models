@@ -182,8 +182,8 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cGAN"
+	path = "C:\\Jannes\\learnSamples\\250519_testSet"
+	outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\cGAN"
 	
 	## Check PATHS
 	if not os.path.exists(path) or not os.path.exists(outPath):
@@ -199,7 +199,7 @@ def main(argv):
 
 	#############################################################################
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = False
+	testSet = True
 	#############################################################################
 
 	save_name = "HOLOGAN.ckpt"
