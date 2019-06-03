@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/cWGAN"
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/cGAN/"
 #######################################################################################
 
 
@@ -55,6 +55,9 @@ class groupOfFiles:
 	
 	def __iter__(self):
 		return self
+
+	def __next__(self): ## python 3
+		return self.next()
 	
 	def next(self):
 		if self.current >= self.maxiter:
@@ -77,6 +80,6 @@ while getMinIndices.has_next():
 	file_nr = getMinIndices.next()
 	src_file_name = join(baseDir, str(file_nr) +"ov.png")
 	dst_file_name = join(min_error_image_dir, str(file_nr) + "ov.png")
- 	copyfile(src_file_name, dst_file_name)
+	copyfile(src_file_name, dst_file_name)
 	print("Moving file " + str(file_nr) )
 

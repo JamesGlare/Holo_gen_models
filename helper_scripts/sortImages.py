@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/cVAE"
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/directInference/"
 ###############################################################################
 class overviewImage:
 
@@ -30,7 +30,7 @@ class overviewImage:
 
 	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred, fourier_real):
 		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()))
-		#out_image = self.__whiten(out_image)
+		out_image = self.__whiten(out_image)
 		## the paste command needs the upper left corner (x,y)	
 
 		## (1) Resize the fourier images
@@ -62,7 +62,7 @@ class overviewImage:
 		out_image.paste(int_real_resized, (3*self.margin_x + self.fourier_x+ self.pic_x, 2*self.margin_y + self.pic_y))
 		
 		## OPTIONAL WRITE ON IMAGE
-		draw_img = ImageDraw.Draw(out_image)
+		#draw_img = ImageDraw.Draw(out_image)
 		#draw_img.text((2*self.margin_x+self.fourier_x, self.margin_y), "Inv. Hologram", fill=(235,235,235))
 		#draw_img.text(( 3*self.margin_x+self.fourier_x+self.pic_x,self.margin_y), "Reconstr. Intensity", fill=(235,235,235))
 		#draw_img.text((2*self.margin_x+self.fourier_x,2*self.margin_y+self.pic_y), "Actual Hologram", fill=(235,235,235))
@@ -88,7 +88,7 @@ class overviewImage:
 		for i in range(h):
 			for j in range(w):
 				value = sum(pixelMap[i,j])/3
-				pixelMap[i,j] = (value,0,0)
+				pixelMap[i,j] = (int(value),0,0)
 
 		return rgbImg
 	
