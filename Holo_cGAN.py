@@ -266,7 +266,7 @@ def main(argv):
 	saver = tf.train.Saver()	
 	print("Commencing training...")
 	if testSet:
-    	restore = True
+		restore = True
 	""" --------------- Session ---------------------------------------------------------------------------"""	
 	with tf.Session() as sess:
 

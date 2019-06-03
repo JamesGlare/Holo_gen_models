@@ -1,6 +1,6 @@
 ### systemic imports
 import sys	
-from os import listdir, makedirs, getcwd
+from os import listdir, makedirs, getcwd, walk
 from os.path import join, isfile, exists
 
 
@@ -16,9 +16,21 @@ import matplotlib.pyplot as plt
 
 ### library ##############################################
 
-def createDir_safely( dirName):	
-	if not exists(dirName):
-    		makedirs(dirName)
+def get_file_indices(dirpath):
+	indices = []
+	for root, dirs, files in walk(dirpath):
+		for name in files:
+			name_str = str(name)
+			if name_str.find(".txt") != -1:
+				indices.append( name_str)
+	return indices
+
+def load_files(dirpath, nr, i, indices):
+	fileContents = []
+	for k in range(nr):
+		index = indices[i+k]
+		fileContents.append(np.loadtxt(join(dirpath, index), delimiter='\t', unpack=False))
+	return np.array(fileContents)
 
 def argmax_2d(matrix):
 	cur_max = 0
@@ -155,6 +167,22 @@ N_VALID = 100
 
 def main(argv):
 
+	## Check PATHS
+	if not exists(path) or not exists(out_path):
+		print("PATH DOESN'T EXIST!")
+		sys.exit()
+
+	## Get file indices etc
+	minFileNr = 1
+	indices = get_file_indices(join(path, output_folder))
+	maxFile = len(indices) ## number of samples in data set
+	
+	### Define file load functions
+	load_fourier = lambda x, nr : 1.0/100*np.squeeze(load_files(join(path, fourier_folder), nr, minFileNr+ x, indices))
+	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(join(path, input_folder), nr, minFileNr + x, indices))
+	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(join(path, output_folder), nr, minFileNr + x, indices))
+
+
 	""" Linear regression of F_p(I_p) relation """
 	"""measured = np.loadtxt(join(getcwd(), "lin_reg.txt"), delimiter='\t', skiprows=1)
 	F_y = measured[:,0]
@@ -175,14 +203,13 @@ def main(argv):
 	int_path = join(path,  output_folder)
 	fourier_path = join(path, fourier_folder)
 	files = [ f for f in listdir(int_path ) if ".txt" in f]
-	print("Found " + str(len(files)) + " txt files.")
+	print("Found " + str(maxFile) + " txt files.")
 	
 	## (2) for file_name in files:
-	file_nr = 0
-	for file_name in files:	
+	for nr in range(0, N_VALID):	
 		
-		intensity = 1./255.*np.loadtxt(join(int_path, file_name), delimiter='\t', unpack=False)
-		fourier = 1./100.*np.loadtxt(join(fourier_path, file_name), delimiter='\t', unpack=False)
+		intensity = load_output(nr,1)
+		fourier =  load_fourier(nr,1)
 		centroids = peak_loc_nr(intensity)
 		
 		#plt.figure()
@@ -198,11 +225,8 @@ def main(argv):
 			value = float(1.0/2.5*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		## (3) plot
-		writeMatrices(out_path, file_nr, fourier_estimate, intensity, fourier) 
-		file_nr = file_nr + 1
+		writeMatrices(out_path, nr, fourier_estimate, intensity, fourier) 
 
-		if file_nr == N_VALID:
-			sys.exit()
 			
 if __name__ == "__main__":
 	main(sys.argv)

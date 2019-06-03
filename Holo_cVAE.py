@@ -200,11 +200,16 @@ def main(argv):
 	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cVAE"
 		
+	## Check PATHS
+	if not os.path.exists(path) or not os.path.exists(outPath):
+		print("PATH DOESN'T EXIST!")
+		sys.exit()
+	
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"
 	minFileNr = 1
-	indices = get_file_indices(os.path.join(path, fourier_folder))
+	indices = get_file_indices(os.path.join(path, output_folder))
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################

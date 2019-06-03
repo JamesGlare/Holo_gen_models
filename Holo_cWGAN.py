@@ -183,9 +183,14 @@ def plotMatrices(yPredict, y):
 def main(argv):
 	### File paths etc
 
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cWGAN"
-		
+	
+	## Check PATHS
+	if not os.path.exists(path) or not os.path.exists(outPath):
+		print("PATH DOESN'T EXIST!")
+		sys.exit()
+
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"
@@ -194,7 +199,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 

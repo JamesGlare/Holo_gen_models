@@ -181,7 +181,7 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cGAN_recLoss"
 	
 	## Check PATHS
@@ -197,7 +197,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
