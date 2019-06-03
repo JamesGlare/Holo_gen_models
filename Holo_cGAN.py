@@ -320,7 +320,8 @@ def main(argv):
 			
 			for k in range(0, N_VALID):
 				testNr = last_index + k
-				x = load_fourier(testNr, N_BATCH)
+				if not testSet:
+					x = load_fourier(testNr, N_BATCH)
 				y = load_output(testNr, N_BATCH)
 				for r in range(N_REDRAW):
 					fileNr = last_index + k*N_REDRAW + r
