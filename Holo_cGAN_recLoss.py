@@ -209,7 +209,7 @@ def main(argv):
 	eta_D = 0.0001
 	eta_G = 0.0001
 	N_BATCH = 60
-	N_VALID = 300	
+	N_VALID = 100	
 	N_CRITIC = 5
 	N_REDRAW = 5	
 	N_EPOCH = 20
