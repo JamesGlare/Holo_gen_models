@@ -6,7 +6,8 @@ from matplotlib import style
 
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/directInference"
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/cWGAN"
+n_step = 5
 ###############################################################################
 
 def minErrorGen(errorList, step=5):
@@ -34,7 +35,7 @@ def loadErrorFile(fName):
 	else:
 		print("Failed to load file")
 
-def plotError(errorFile, step=5):
+def plotError(errorFile, step=n_step):
 	nr = (errorFile.shape)[0] ## number of rows
 	
 	x = np.arange(nr/step)
@@ -76,4 +77,4 @@ def plotError(errorFile, step=5):
 """----- ACTUAL SCRIPT  -----------------------------------------------"""
 fName = "error.txt"
 error_file = loadErrorFile(join(path, fName))
-plotError(error_file, step=1)
+plotError(error_file, step=n_step)

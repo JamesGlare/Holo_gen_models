@@ -9,7 +9,7 @@ from skimage import img_as_float
 import matplotlib.pyplot as plt
 
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/cGAN"
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/directInference"
 ###############################################################################
 
 class forwardOverviewImage:
@@ -84,9 +84,9 @@ class forwardOverviewImage:
 	
 		## (3) paste the predicted intensity
 		int_pred_color = self.__colorize(int_pred)
-		int_real_color_resized = int_pred_color.resize((self.__pic_x, self.__pic_y))
+		int_pred_color_resized = int_pred_color.resize((self.__pic_x, self.__pic_y))
 
-		outImage.paste(int_real_color_resized, (3*self.__margin_x + self.__fourier_x + self.__pic_x, self.__margin_y))
+		outImage.paste(int_pred_color_resized, (3*self.__margin_x + self.__fourier_x + self.__pic_x, self.__margin_y))
 		return outImage
 
 def openImage(fName):
@@ -135,6 +135,7 @@ for f in listdir(path):
 				file_nr.append(nr)			
 
 print(str(len(file_nr)) + " files detected")
+print(str(path))
 
 ## build file names
 if file_nr:
