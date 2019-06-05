@@ -6,8 +6,8 @@ from matplotlib import style
 
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/cWGAN"
-n_step = 5
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/directInference"
+n_step = 1
 ###############################################################################
 
 def minErrorGen(errorList, step=5):
