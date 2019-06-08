@@ -86,8 +86,8 @@ def sample(PI, SIGMA, MU, N_BATCH, K, L):
 	#k = CAT_DIST.sample(1) ## not quite sure how to deal with Batch redraw here ... for loop?
 
 	## Option 2 - Just take the max component
-	k = tf.math.argmax(PI, axis=1) ## [N_BATCH,]
-	MU_k = tf.squeeze(tf.slice(MU, [0,k,0], [N_BATCH, 1,L])) ## [N_BATCH, L]
+	k = tf.math.argmax(PI, axis=1) ## [N_BATCH]
+	MU_k = tf.squeeze(tf.gather(MU, k, axis=1)) ## [N_BATCH, L]
 	### MU_k = tf.reshape(MU[:,k,:], [N_BATCH, L]) ## get the mean [N_BATCH, L]
 
 	## Sample from standard normal distribution
