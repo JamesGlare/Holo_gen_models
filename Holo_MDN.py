@@ -88,11 +88,12 @@ def sample(PI, SIGMA, MU, N_BATCH, K, L):
 	## Option 2 - Just take the max component
 	k = tf.math.argmax(PI, axis=1) ## [N_BATCH]
 	MU_k = tf.squeeze(tf.gather(MU, k, axis=1)) ## [N_BATCH, L]
+	SIGMA_k = tf.squeeze(tf.gather(SIGMA, k, axis=1)) ## [N_BATCH]
+
 	### MU_k = tf.reshape(MU[:,k,:], [N_BATCH, L]) ## get the mean [N_BATCH, L]
 
 	## Sample from standard normal distribution
 	eps = tf.random.normal([N_BATCH,L], mean=0.0, stddev=1.)
-	SIGMA_k = SIGMA[:,k] ## ... and variance [N_BATCH,]
 	return tf.add(MU_k, tf.multiply(SIGMA_k, eps)) ## [N_BATCH,L] (broadcasting abuse)
 
 
