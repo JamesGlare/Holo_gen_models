@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/cGAN/"
+path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/testSet_pictures"
 #######################################################################################
 
 

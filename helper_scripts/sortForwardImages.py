@@ -25,7 +25,7 @@ class forwardOverviewImage:
 		return self.__pic_y + 2*self.__margin_y
 
 	def __total_x(self):
-		return 2*self.__pic_x + 4*self.__margin_x + self.__fourier_x
+		return 1*self.__pic_x + 3*self.__margin_x + self.__fourier_x
 		
 	def __colorize(self, greyImg):
 		
@@ -57,25 +57,36 @@ class forwardOverviewImage:
 
 		return rescaled
 
+	def __whiten(self, image):
+		image_map = image.load()
+		width, height = image.size 		
+		
+		for i in range(width):
+			for j in range(height):
+				image_map[i,j] = (255,255,255)
+
+		return image
+
 	def create_overview_image(self, int_pred, int_real, fourier_pred):
 		outImage = Image.new('RGB', (self.__total_x(), self.__total_y() ))
-		
+		outImage = self.__whiten(outImage)
+
 		## (1) rescale the fourier image
 		fourier_pred_rescaled = self.__rescale_no_blur(fourier_pred)
 		## paste the image
 		outImage.paste(fourier_pred_rescaled, (self.__margin_x, self.__margin_y))
 
 		## (2) paste the real intensity
-		int_real_color = self.__colorize(int_real)
-		int_real_color_resized = int_real_color.resize((self.__pic_x, self.__pic_y))
+		#int_real_color = self.__colorize(int_real)
+		#int_real_color_resized = int_real_color.resize((self.__pic_x, self.__pic_y))
 
-		outImage.paste(int_real_color, (2*self.__margin_x + self.__fourier_x, self.__margin_y))
+		#outImage.paste(int_real_color_resized, (2*self.__margin_x + self.__fourier_x, self.__margin_y))
 	
 		## (3) paste the predicted intensity
 		int_pred_color = self.__colorize(int_pred)
 		int_pred_color_resized = int_pred_color.resize((self.__pic_x, self.__pic_y))
 
-		outImage.paste(int_pred_color, (3*self.__margin_x + self.__fourier_x + self.__pic_x, self.__margin_y))
+		outImage.paste(int_pred_color_resized, (2*self.__margin_x + self.__fourier_x, self.__margin_y))
 		return outImage
 
 def openImage(fName):
@@ -124,6 +135,7 @@ for f in listdir(path):
 				file_nr.append(nr)			
 
 print(str(len(file_nr)) + " files detected")
+print(str(path))
 
 ## build file names
 if file_nr:
