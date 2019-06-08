@@ -182,14 +182,16 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\250519_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\cWGAN"
+	path = "C:\\Jannes\\learnSamples\\030619_testSet"
+	outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\cWGAN"
 	
 	## Check PATHS
-	if not os.path.exists(path) or not os.path.exists(outPath):
-		print("PATH DOESN'T EXIST!")
+	if not os.path.exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
-
+	if not os.path.exists(outPath):
+    		os.makedirs(outPath)
+	
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"
@@ -216,6 +218,7 @@ def main(argv):
 	N_EPOCH = 40
 	N_LAT = 64
 	LAMBDA = 10
+	BETA = 0
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH*N_CRITIC
 	last_index  = 0
@@ -242,7 +245,7 @@ def main(argv):
 	# WGAN loss
 	alpha = tf.random_uniform(shape=[N_BATCH,1,1], minval=0., maxval=1.)
 	D_loss = tf.reduce_mean(D_FAKE) - tf.reduce_mean(D_REAL)
-	G_loss = -tf.reduce_mean(D_FAKE)
+	G_loss = -tf.reduce_mean(D_FAKE) + BETA/64*tf.nn.l2_loss(X_FAKE-X_REAL)
 
 	## gradient penalty
 	interpolates = alpha*X_REAL + ((1-alpha)*X_FAKE)

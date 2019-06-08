@@ -49,7 +49,12 @@ def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collectio
            name="conv2d", spectral_normed=False, update_collection=None, with_w=False, padding="SAME"):"""
 		
 		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
-## format matrix in windows-compatible way
+
+def deconvLayer(x, nr, output_shape, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
+		with tf.variable_scope("deconvLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
+			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
+
+# # format matrix in windows-compatible way
 def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 
 	# build dir paths
@@ -75,6 +80,41 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	np.savetxt(pathName_predFourier, 100.0*pred_fourier, fmt="%.1f", delimiter='\t', newline='\n')
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
 	np.savetxt(pathName_real_fourier, 100.0*real_fourier , fmt="%.1f", delimiter='\t', newline='\n')
+
+""" --------------- FORWARD Graph -------------------------------------------------------------"""
+def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
+	with tf.variable_scope("forward", reuse=tf.AUTO_REUSE) as scope:
+		print("Setting up forward graph")
+
+		x = tf.reshape(x, [N_BATCH, 8,8,1])
+		c1 = batch_norm(convLayer(x, 1, 8,3,1, spec_norm=False,  update_collection=update_collection, padStr="SAME"), name='bn1', is_training=train) ## 8x8 4 channels
+		c1 = tf.nn.relu(c1)
+		c2 = batch_norm(convLayer(c1, 2, 8,3,1,  spec_norm=False, update_collection=update_collection, padStr="SAME"), name='bn2', is_training=train) ## 8x8 4 channels
+		c2 = tf.nn.relu(c2)
+        ## Dense Layer
+		c = tf.reshape(c2, [N_BATCH, 8*8*8])
+
+		d1 = batch_norm(denseLayer(c, 3, 512, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
+		d1 = tf.nn.relu(d1)
+		# dropout
+		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
+		#
+		d2 = batch_norm(denseLayer(do1, 4, 256, spec_norm=False, update_collection=update_collection), name='bn4', is_training=train)
+		d2 = tf.nn.relu(d2)
+
+		d = tf.reshape(d2, [N_BATCH, 8,8,4])
+		
+		## Deconvolution Layers
+		dc1 = batch_norm( deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 10x10, 4 channels
+		dc1= tf.nn.relu(dc1)
+		dc2 = batch_norm( deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn6', is_training=train) # 32x32, 4 channels
+		dc2= tf.nn.relu(dc2)
+		dc3 = batch_norm( deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn7', is_training=train) # 100x100, 4 channels
+		dc = tf.reduce_mean(dc3, 3) ## collapse channels 		
+		
+		y = tf.nn.relu(dc) ## [-1, 100, 100]
+
+		return y
 
 """ --------------- DECODER Graph --------------------------------------------------------------"""		
 def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
@@ -197,8 +237,8 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\030619_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\cVAE"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\cVAE_forward_beta2_01"
 		
 	## Check PATHS
 	if not os.path.exists(path):
@@ -216,7 +256,7 @@ def main(argv):
 
 	#############################################################################
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = True
+	testSet = False
 	#############################################################################
 
 	save_name = "HOLOVAE.ckpt"
@@ -231,6 +271,7 @@ def main(argv):
 	N_EPOCH = 20
 	N_LAT = 64
 	BETA = 1.0
+	BETA2 = 0.1
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
@@ -251,15 +292,22 @@ def main(argv):
 	LAT = encoder(X,Y, is_train, N_LAT, N_BATCH)
 	Z = sample(LAT, N_LAT, N_BATCH)
 	X_HAT = decoder(Z,Y, is_train, N_LAT, N_BATCH) ## GENERATOR GRAPH
-
+	Y_HAT = forward(X, is_train, N_BATCH)
+	Y_HAT_HAT = forward(X_HAT, is_train, N_BATCH)
 	## VALIDATION TENSORS
 	Z_VALID = tf.random.normal([N_BATCH, N_LAT], mean=0.0, stddev=1)
 	X_HAT_VALID = decoder(Z_VALID, Y, is_train, N_LAT, N_BATCH)
 
+	VAE_var_list = list(set(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="decoder")).union( tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="encoder")))
+	FORW_var_list =  tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="forward")
+
 	## Loss functions	
 	VAE_loss = setup_vae_loss(X, X_HAT, LAT, BETA, N_SAMPLE, N_EPOCH, N_BATCH)
-	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss)
-	X_loss = tf.nn.l2_loss(X-X_HAT)
+	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
+	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
+	X_loss = tf.nn.l2_loss(X - X_HAT)
+	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + BETA2*Y_HAT_loss, var_list=VAE_var_list)
+	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
@@ -289,6 +337,7 @@ def main(argv):
 
 					x = load_fourier(i, N_BATCH)
 					y = load_output(i, N_BATCH)
+					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
 					sess.run(VAE_solver, feed_dict={X:x, Y:y, is_train: True})			
 		
 			plt.figure(figsize=(8, 8))

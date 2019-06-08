@@ -159,9 +159,10 @@ input_folder = 	"in"
 output_folder = "out"
 
 ### Change paths ######################################################
-path = "C:\\Jannes\\learnSamples\\250519_testSet"
-outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\directInference"
+path = "C:\\Jannes\\learnSamples\\030619_testSet"
+outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\directInference"
 N_VALID = 100
+testSet = True
 #######################################################################
 
 
@@ -209,7 +210,8 @@ def main(argv):
 	for nr in range(0, N_VALID):	
 		
 		intensity = load_output(nr,1)
-		fourier =  load_fourier(nr,1)
+		if not testSet:
+			fourier =  load_fourier(nr,1)
 		centroids = peak_loc_nr(intensity)
 		
 		#plt.figure()
@@ -225,8 +227,10 @@ def main(argv):
 			value = float(2.0/2.5*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		## (3) plot
-		writeMatrices(outPath, nr, fourier_estimate, intensity, fourier) 
-
-			
+		if testSet:
+			writeMatrices(outPath, nr, fourier_estimate, intensity, fourier_estimate)
+		else:
+			writeMatrices(outPath, nr, fourier_estimate, intensity, fourier)	 
+		
 if __name__ == "__main__":
 	main(sys.argv)

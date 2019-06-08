@@ -181,13 +181,15 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\250519_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\cGAN_recLoss"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cGAN_recLoss_40_epochs"
 	
 	## Check PATHS
-	if not os.path.exists(path) or not os.path.exists(outPath):
-		print("PATH DOESN'T EXIST!")
+	if not os.path.exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
+	if not os.path.exists(outPath):
+    		os.makedirs(outPath)
 
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
@@ -198,7 +200,7 @@ def main(argv):
 
 	#############################################################################
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = True
+	testSet = False
 	#############################################################################
 
 	save_name = "HOLOGAN.ckpt"

@@ -182,13 +182,15 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\030619_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\cWGAN_recLoss"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cWGAN_recLoss"
 	
 	## Check PATHS
-	if not os.path.exists(path) or not os.path.exists(outPath):
-		print("PATH DOESN'T EXIST!")
+	if not os.path.exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
+	if not os.path.exists(outPath):
+    		os.makedirs(outPath)
 
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
@@ -199,7 +201,7 @@ def main(argv):
 
 	#############################################################################
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = True
+	testSet = False
 	#############################################################################
 
 	save_name = "W_GP_HOLOGAN.ckpt"
@@ -213,10 +215,10 @@ def main(argv):
 	N_VALID = 100
 	N_REDRAW = 5	
 	N_CRITIC = 5
-	N_EPOCH = 40
+	N_EPOCH = 20
 	N_LAT = 64
-    LAMBDA = 10
-    BETA = 1.0
+	LAMBDA = 10
+	BETA = 1.0
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH*N_CRITIC
 	last_index  = 0

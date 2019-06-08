@@ -182,14 +182,16 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	### File paths etc
-	path = "C:\\Jannes\\learnSamples\\250519_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\250519_testSet\\cGAN"
+	path = "C:\\Jannes\\learnSamples\\030619_testSet"
+	outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\cGAN"
 	
 	## Check PATHS
-	if not os.path.exists(path) or not os.path.exists(outPath):
-		print("PATH DOESN'T EXIST!")
+	if not os.path.exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
-
+	if not os.path.exists(outPath):
+    		os.makedirs(outPath)
+			
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"
