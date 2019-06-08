@@ -102,9 +102,9 @@ def mixture_density(Y, PI, SIGMA, MU, N_BATCH, K, L):
 	Y_tile = tf.tile(Y, [K, 1]) 								## [K*N_BATCH, L]
 	Y_tile = tf.reshape(Y_tile, [N_BATCH, K, L])
 	dYSq = tf.reduce_sum(tf.square(Y-MU), axis=2) 				## [N_BATCH, K] 
-	expon = tf.mul(dYSq, tf.inv( 2*tf.square(SIGMA)))  			## [N_BATCH, K]
-	norm =  tf.inv(tf.sqrt( tf.mul(TWOPI_, tf.square(SIGMA)))) 	## [N_BATCH, K]
-	gauss = tf.mul(norm, tf.exp(-expon)) 										## [N_BATCH, K]
+	expon = tf.multiply(dYSq, tf.reciprocal( 2*tf.square(SIGMA)))  			## [N_BATCH, K]
+	norm =  tf.reciprocal(tf.sqrt( tf.multiply(TWOPI_, tf.square(SIGMA)))) 	## [N_BATCH, K]
+	gauss = tf.multiply(norm, tf.exp(-expon)) 										## [N_BATCH, K]
 	return tf.squeeze(tf.matmul(PI, tf.transpose(gauss)))		## [N_BATCH]
 
 def MDN(y, train, N_BATCH, K, L,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
@@ -136,8 +136,8 @@ def MDN(y, train, N_BATCH, K, L,  update_collection=tf.GraphKeys.UPDATE_OPS): ##
 		par = tf.reshape(d3, [N_BATCH, K, 2*L+2])
         
 		pi = tf.exp(par[:,:,0]) 						## [N_BATCH, K]
-		norm_pi = tf.inv(tf.reduce_sum(pi, 1, keep_dims=True)) ## also [N_BATCH, K]
-		pi = tf.mul(pi, norm_pi)						## [N_BATCH, K]
+		norm_pi = tf.reciprocal(tf.reduce_sum(pi, 1, keep_dims=True)) ## also [N_BATCH, K]
+		pi = tf.multiply(pi, norm_pi)						## [N_BATCH, K]
 		sigma = tf.exp(par[:,:,1])						## [N_BATCH, K]
 		mu = par[:,:,2:]								## [N_BATCH, K, L]
 
@@ -162,7 +162,7 @@ def main(argv):
 	
 	## File paths etc ############################################################
 	path = "C:\\Jannes\learnSamples\\040319_1W_0001s"
-	outPath = "C:\\Jannes\\python\\final_scripts\\MDN"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\MDN"
 	##############################################################################
 	save_name = "HOLOMDN.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -177,8 +177,8 @@ def main(argv):
 
 	#############################################################################
 	restore = False ### Set this True to load model from disk instead of training
+	testSet = False
 	#############################################################################
-
 
 	### Hyperparameters
 	tf.set_random_seed(42)
@@ -187,8 +187,8 @@ def main(argv):
 	N_VALID = 100	
 	N_REDRAW = 5	
 	N_EPOCH = 30
-	K = 10
-	L = 8
+	K = 10 	### number of peaks
+	L = 8	### dimensions of X
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
@@ -270,8 +270,10 @@ def main(argv):
 					x_pred = sess.run(X_HAT, feed_dict={Y:y, is_train: False})
 
 					## write the matrices to file
-					writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
-
+					if testSet:
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
+					else:
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 			print("DONE! :)")
 if __name__ == "__main__":
 	main(sys.argv)
