@@ -87,10 +87,11 @@ def sample(PI, SIGMA, MU, N_BATCH, K, L):
 
 	## Option 2 - Just take the max component
 	k = tf.math.argmax(PI, axis=1) ## [N_BATCH,]
+	MU_k = tf.squeeze(tf.slice(MU, [0,k,0], [N_BATCH, 1,L])) ## [N_BATCH, L]
+	### MU_k = tf.reshape(MU[:,k,:], [N_BATCH, L]) ## get the mean [N_BATCH, L]
 
 	## Sample from standard normal distribution
 	eps = tf.random.normal([N_BATCH,L], mean=0.0, stddev=1.)
-	MU_k = tf.reshape(MU[:,k,:], [N_BATCH, L]) ## get the mean [N_BATCH, L]
 	SIGMA_k = SIGMA[:,k] ## ... and variance [N_BATCH,]
 	return tf.add(MU_k, tf.multiply(SIGMA_k, eps)) ## [N_BATCH,L] (broadcasting abuse)
 
@@ -103,7 +104,7 @@ def mixture_density(Y, PI, SIGMA, MU, N_BATCH, K, L):
 	Y_tile = tf.reshape(Y_tile, [N_BATCH, K, L])
 	dYSq = tf.reduce_sum(tf.square(Y-MU), axis=2) 				## [N_BATCH, K] 
 	expon = tf.multiply(dYSq, tf.reciprocal( 2*tf.square(SIGMA)))  			## [N_BATCH, K]
-	norm =  tf.reciprocal(tf.sqrt( tf.multiply(TWOPI_, tf.square(SIGMA)))) 	## [N_BATCH, K]
+	norm =  tf.reciprocal(tf.multiply(tf.sqrt( TWOPI_),SIGMA)) 	## [N_BATCH, K]
 	gauss = tf.multiply(norm, tf.exp(-expon)) 										## [N_BATCH, K]
 	return tf.squeeze(tf.matmul(PI, tf.transpose(gauss)))		## [N_BATCH]
 
@@ -161,9 +162,17 @@ def plotMatrices(yPredict, y):
 def main(argv):
 	
 	## File paths etc ############################################################
-	path = "C:\\Jannes\learnSamples\\040319_1W_0001s"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\MDN"
 	##############################################################################
+	## Check PATHS
+	if not os.path.exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
+		sys.exit()
+	if not os.path.exists(outPath):
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		sys.exit()
+
 	save_name = "HOLOMDN.ckpt"
 	save_string = os.path.join(outPath, save_name)
 
