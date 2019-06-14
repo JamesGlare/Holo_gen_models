@@ -159,8 +159,8 @@ input_folder = 	"in"
 output_folder = "out"
 
 ### Change paths ######################################################
-path = "C:\\Jannes\\learnSamples\\030619_testSet"
-outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\directInference"
+path = "C:\\Jannes\learnSamples\\030619_testSet"
+outPath = "E:\\110619_inv_holo_results_w_forw_cVAE\\testSet_results\\directInference"
 N_VALID = 100
 testSet = True
 #######################################################################
@@ -169,10 +169,12 @@ testSet = True
 def main(argv):
 
 	## Check PATHS
-	if not exists(path) or not exists(outPath):
-		print("PATH DOESN'T EXIST!")
+	if not exists(path):
+		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
-
+	if not exists(outPath):
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		sys.exit()
 	## Get file indices etc
 	minFileNr = 1
 	indices = get_file_indices(join(path, output_folder))
@@ -224,7 +226,7 @@ def main(argv):
 			i = mu_y(cy)
 		
 			#print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
-			value = float(2.0/2.5*intensity[int(cy), int(cx)])
+			value = float(2.5/2.5*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		## (3) plot
 		if testSet:

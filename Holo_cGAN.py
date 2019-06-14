@@ -190,8 +190,9 @@ def main(argv):
 		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
 	if not os.path.exists(outPath):
-    		os.makedirs(outPath)
-			
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		sys.exit()
+
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"

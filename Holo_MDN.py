@@ -10,7 +10,7 @@ from datetime import date
 from libs.ops import *
 
 """ --------------------------------------------------------------------------------------------"""
-TWOPI_ = 1.0/np.sqrt(2*np.pi)
+TWOPI_ =np.float32( 1.0/np.sqrt(2*np.pi))
 
 def get_file_indices(path):
 	indices = []
@@ -87,27 +87,30 @@ def sample(PI, SIGMA, MU, N_BATCH, K, L):
 
 	## Option 2 - Just take the max component
 	k = tf.math.argmax(PI, axis=1) ## [N_BATCH]
-	MU_k = tf.squeeze(tf.gather(MU, k, axis=1)) ## [N_BATCH, L]
-	SIGMA_k = tf.squeeze(tf.gather(SIGMA, k, axis=1)) ## [N_BATCH]
 
-	### MU_k = tf.reshape(MU[:,k,:], [N_BATCH, L]) ## get the mean [N_BATCH, L]
+	c = tf.range(N_BATCH, dtype=tf.int64)
+	ndind = tf.stack([c, k], axis=-1)
+	MU_k = tf.gather_nd(MU, ndind)## [N_BATCH, L]
+	
+	SIGMA_k = tf.tile(tf.expand_dims(tf.gather_nd(SIGMA, ndind),-1), [1,L])## [N_BATCH]
 
 	## Sample from standard normal distribution
-	eps = tf.random.normal([N_BATCH,L], mean=0.0, stddev=1.)
-	return tf.add(MU_k, tf.multiply(SIGMA_k, eps)) ## [N_BATCH,L] (broadcasting abuse)
+	eps = tf.random.normal([N_BATCH,L], mean=0.0, stddev=1., dtype=tf.float32)
+	result= tf.add(MU_k, tf.multiply(SIGMA_k, eps)) ## [N_BATCH,L]
+	return tf.reshape(result, [N_BATCH, 8,8])
 
-
-def mixture_density(Y, PI, SIGMA, MU, N_BATCH, K, L):
+def mixture_density(X, PI, SIGMA, MU, N_BATCH, K, L):
 	## PI -> [N_BATCH, K]
 	## SIGMA -> [N_BATCH, K]
 	## MU -> [N_BATCH, K, L]
-	Y_tile = tf.tile(Y, [K, 1]) 								## [K*N_BATCH, L]
-	Y_tile = tf.reshape(Y_tile, [N_BATCH, K, L])
-	dYSq = tf.reduce_sum(tf.square(Y-MU), axis=2) 				## [N_BATCH, K] 
-	expon = tf.multiply(dYSq, tf.reciprocal( 2*tf.square(SIGMA)))  			## [N_BATCH, K]
-	norm =  tf.reciprocal(tf.multiply(tf.sqrt( TWOPI_),SIGMA)) 	## [N_BATCH, K]
-	gauss = tf.multiply(norm, tf.exp(-expon)) 										## [N_BATCH, K]
-	return tf.squeeze(tf.matmul(PI, tf.transpose(gauss)))		## [N_BATCH]
+	X = tf.reshape(X, [N_BATCH, L])
+	X_tile = tf.tile(X, [K, 1]) 									## [K*N_BATCH, L]
+	X_tile = tf.reshape(X_tile, [N_BATCH, K, L])
+	dYSq = tf.reduce_sum(tf.square(X_tile-MU), axis=2) 				## [N_BATCH, K] 
+	expon = tf.multiply(dYSq, tf.reciprocal( 2*tf.square(SIGMA)))  	## [N_BATCH, K]
+	norm =  tf.reciprocal(tf.multiply(tf.sqrt( TWOPI_),SIGMA)) 		## [N_BATCH, K]
+	gauss = tf.multiply(norm, tf.exp(-expon)) 						## [N_BATCH, K]
+	return tf.squeeze(tf.matmul(PI, tf.transpose(gauss)))			## [N_BATCH]
 
 def MDN(y, train, N_BATCH, K, L,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
 	with tf.variable_scope("MDN", reuse=tf.AUTO_REUSE) as scope:
@@ -133,12 +136,13 @@ def MDN(y, train, N_BATCH, K, L,  update_collection=tf.GraphKeys.UPDATE_OPS): ##
 				
 		do2 = tf.layers.dropout(d2, rate=0.2, training=train)		
 
-		d3 = batch_norm(denseLayer(do2, 6, K*(2*L+2), update_collection=update_collection), name='bn6', is_training=train)
+		d3 = batch_norm(denseLayer(do2, 6, K*(L+2), update_collection=update_collection), name='bn6', is_training=train)
         ## Convention pi sigma mu_0, ..., mu_(N-1)
-		par = tf.reshape(d3, [N_BATCH, K, 2*L+2])
+		par = tf.reshape(d3, [N_BATCH, K, L+2])
         
-		pi = tf.exp(par[:,:,0]) 						## [N_BATCH, K]
-		norm_pi = tf.reciprocal(tf.reduce_sum(pi, 1, keep_dims=True)) ## also [N_BATCH, K]
+		max_pi = tf.reduce_max(par[:,:,0], axis=1, keepdims=True) ## stabilize
+		pi = tf.exp(par[:,:,0] -max_pi)						## [N_BATCH, K]
+		norm_pi = tf.reciprocal(tf.reduce_sum(pi, 1, keepdims=True)) ## also [N_BATCH, K]
 		pi = tf.multiply(pi, norm_pi)						## [N_BATCH, K]
 		sigma = tf.exp(par[:,:,1])						## [N_BATCH, K]
 		mu = par[:,:,2:]								## [N_BATCH, K, L]
@@ -146,7 +150,6 @@ def MDN(y, train, N_BATCH, K, L,  update_collection=tf.GraphKeys.UPDATE_OPS): ##
 		return pi, sigma, mu
 
 """ --------------------------------------------------------------------------------------------"""		
-
 
 def plotMatrices(yPredict, y):
 	plt.subplot(1, 2, 1)
@@ -196,20 +199,21 @@ def main(argv):
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 30
-	K = 10 	### number of peaks
-	L = 8	### dimensions of X
+	N_EPOCH = 1
+	K = 8 	### number of peaks
+	L = 64	### dimensions of X
+	
 	## sample size
-	N_SAMPLE = maxFile-N_BATCH
+	N_SAMPLE = maxFile - N_BATCH
 	last_index  = 0
 	print("Data set has length "+str(N_SAMPLE))
 
-	### Define file load functions
+	## Define file load functions
 	load_fourier = lambda x, nr : 1.0/100*np.squeeze(load_files(os.path.join(path, fourier_folder), nr, minFileNr+ x, indices))
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
-	""" --------------- Set up the graph ---------------------------------------------------------"""	
 
+	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	## Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
 	X = tf.placeholder(dtype=tf.float32, name="X") ## Fourier input
@@ -222,19 +226,22 @@ def main(argv):
 	X_HAT = sample(PI, SIGMA, MU, N_BATCH, K, L)
 
 	## Loss functions	
-	MDN_loss = -tf.reduce_sum(tf.log(mixture_density(Y, PI, SIGMA, MU, N_BATCH, K, L) ) )
+	eps = tf.constant( 0.0000001, shape=[N_BATCH])
+	MDN_loss = -tf.reduce_sum(tf.log(mixture_density(X, PI, SIGMA, MU, N_BATCH, K, L) +eps) )
 	MDN_solver = tf.train.RMSPropOptimizer(learning_rate = eta).minimize(MDN_loss)
-	X_loss = tf.nn.l2_loss(X-X_HAT)
+	X_loss = tf.nn.l2_loss(X - X_HAT)
+
 	## Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
-	# Saver
+	## Saver
 	saver = tf.train.Saver()	
 	print("Commencing training...")
 
 	""" ---- TRAINING ------------"""
 	with tf.Session() as sess:
-		sess.run(initializer)    
+		sess.run(initializer)
+		
 		if not restore :
 			# setup error
 			x_err = []

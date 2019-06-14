@@ -87,29 +87,29 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		print("Setting up forward graph")
 
 		x = tf.reshape(x, [N_BATCH, 8,8,1])
-		c1 = batch_norm(convLayer(x, 1, 8,3,1, spec_norm=False,  update_collection=update_collection, padStr="SAME"), name='bn1', is_training=train) ## 8x8 4 channels
+		c1 =convLayer(x, 1, 8,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 8,3,1,  spec_norm=False, update_collection=update_collection, padStr="SAME"), name='bn2', is_training=train) ## 8x8 4 channels
+		c2 = convLayer(c1, 2, 8,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
 		c2 = tf.nn.relu(c2)
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*8])
 
-		d1 = batch_norm(denseLayer(c, 3, 512, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
+		d1 = denseLayer(c, 3, 512, spec_norm=True, update_collection=update_collection)
 		d1 = tf.nn.relu(d1)
 		# dropout
 		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
 		#
-		d2 = batch_norm(denseLayer(do1, 4, 256, spec_norm=False, update_collection=update_collection), name='bn4', is_training=train)
+		d2 = denseLayer(do1, 4, 256, spec_norm=True, update_collection=update_collection)
 		d2 = tf.nn.relu(d2)
 
 		d = tf.reshape(d2, [N_BATCH, 8,8,4])
 		
 		## Deconvolution Layers
-		dc1 = batch_norm( deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 10x10, 4 channels
+		dc1 =  deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=True, update_collection=update_collection) # 10x10, 4 channels
 		dc1= tf.nn.relu(dc1)
-		dc2 = batch_norm( deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn6', is_training=train) # 32x32, 4 channels
+		dc2 =  deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=True, update_collection=update_collection ) # 32x32, 4 channels
 		dc2= tf.nn.relu(dc2)
-		dc3 = batch_norm( deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn7', is_training=train) # 100x100, 4 channels
+		dc3 =  deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=True, update_collection=update_collection) # 100x100, 4 channels
 		dc = tf.reduce_mean(dc3, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
@@ -237,15 +237,16 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\040319_validation\cVAE_forward_beta2_01"
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cVAE_forward_beta2_1_beta_01_specNorm"
 		
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
 	if not os.path.exists(outPath):
-    		os.makedirs(outPath)
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		sys.exit()
 	
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
@@ -255,7 +256,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = True ### Set this True to load model from disk instead of training
+	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
@@ -265,13 +266,14 @@ def main(argv):
 	### Hyperparameters
 	tf.set_random_seed(42)
 	eta = 1e-4
+	eta_f = 3e-4
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
 	N_EPOCH = 20
 	N_LAT = 64
-	BETA = 1.0
-	BETA2 = 0.1
+	BETA = 0.1
+	BETA2 = 1
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
@@ -307,13 +309,12 @@ def main(argv):
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	X_loss = tf.nn.l2_loss(X - X_HAT)
 	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + BETA2*Y_HAT_loss, var_list=VAE_var_list)
-	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta).minimize(Y_loss, var_list=FORW_var_list)
+	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
 	# Saver
 	saver = tf.train.Saver()	
-	print("Commencing training...")
 	if testSet:
     		restore = True
 	""" ---- TRAINING ------------"""
@@ -323,6 +324,17 @@ def main(argv):
 			x_err = []
 			vae_err = []
 			percent=0
+			### forward network pretraining
+			print("Commencing pretraining...")
+
+			for i in range(0, N_SAMPLE, N_BATCH):
+					x = load_fourier(i, N_BATCH)
+					y = load_output(i, N_BATCH)
+					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
+
+			print("Commencing training...")
+
+    		### main training		
 			for j in range(N_EPOCH):   
 				for i in range(0, N_SAMPLE, N_BATCH):
 					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
