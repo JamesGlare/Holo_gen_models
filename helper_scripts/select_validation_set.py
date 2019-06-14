@@ -1,4 +1,4 @@
-from os import makedirs, getcwd, listdir, rename
+from os import makedirs, listdir, rename
 from os.path import join
 from random import shuffle
 """
@@ -10,12 +10,14 @@ from random import shuffle
 N_VALID = 200
 #####################################
 
+baseDir = "C:\\Jannes\\learnSamples\\130619_1W_0001s"
+
 fourier_folder = "inFourier"
 in_folder = "in"
 out_folder = "out"
 
 ## get list of file names
-file_list = listdir(join(getcwd(), fourier_folder))
+file_list = listdir(join(baseDir, fourier_folder))
 
 file_names = [f for f in file_list if ".txt" in f]
 n_files = len(file_names)
@@ -23,7 +25,7 @@ shuffle(file_names)
 
 ## create validation directory
 valid_dir_name = "validation"
-valid_dir_path = join(getcwd(), valid_dir_name)
+valid_dir_path = join(baseDir, valid_dir_name)
 valid_fourier_dir_path = join(valid_dir_path, fourier_folder)
 valid_in_dir_path = join(valid_dir_path, in_folder)
 valid_out_dir_path = join(valid_dir_path, out_folder)
@@ -35,9 +37,9 @@ for dir in [valid_fourier_dir_path, valid_in_dir_path, valid_out_dir_path]:
 ## into the validation directory
 for i in range(N_VALID):
     ## get files 
-    fourier_file = join(join(getcwd(), fourier_folder), file_names[i])
-    in_file = join(join(getcwd(), in_folder), file_names[i])
-    out_file = join(join(getcwd(), out_folder), file_names[i])
+    fourier_file = join(join(baseDir, fourier_folder), file_names[i])
+    in_file = join(join(baseDir, in_folder), file_names[i])
+    out_file = join(join(baseDir, out_folder), file_names[i])
     
     new_fourier_file = join(valid_fourier_dir_path, file_names[i])
     new_in_file = join(valid_in_dir_path, file_names[i])

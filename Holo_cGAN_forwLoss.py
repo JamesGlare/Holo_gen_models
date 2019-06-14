@@ -5,12 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
-
 from datetime import date
 from libs.ops import *
-from itertools import cycle
-""" --------------------------------------------------------------------------------------------"""
-
 
 def get_file_indices(path):
 	indices = []
@@ -34,6 +30,9 @@ def check_files(path,nr, i, indices):
 		result = result and os.path.isfile(os.path.join(path, indices[i+k]))
 	return result
 
+def sample_Z(N_BATCH, N_LAT):
+    return np.random.uniform(0, 1, size=[N_BATCH, 1, N_LAT])
+
 def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
 	### requires [minBatch, elements] shaped tensor
 	with tf.variable_scope("denseLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
@@ -54,7 +53,7 @@ def deconvLayer(x, nr, output_shape, kxy, stride, spec_norm=False, update_collec
 		with tf.variable_scope("deconvLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
 			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 
-# # format matrix in windows-compatible way
+## format matrix in windows-compatible way
 def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 
 	# build dir paths
@@ -115,12 +114,11 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
 
 		return y
-
-""" --------------- DECODER Graph --------------------------------------------------------------"""		
-def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
-	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
-		print("Setting up the decoder graph...")
-		print("Latent space x/y-dims " + str( np.sqrt(N_LAT).astype(np.int32)) )
+""" --------------- Generator Graph ----------------------------------------------------------"""		
+def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
+	with tf.variable_scope("generator") as scope:
+		print("Preparing generator graph...")
+		## LAYER 1 - conv for y
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
 		c1 = batch_norm(convLayer(y, 1, 4, 7, 3, update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 4 channels
 		c1 = tf.nn.relu(c1)
@@ -128,10 +126,11 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c2 = tf.nn.relu(c2) 
 		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8,8, 8])
+		c = tf.reshape(c3, [N_BATCH, 8,8,8])
 		## Now combine with the latent variables
-		z = tf.reshape(z, [N_BATCH, np.sqrt(N_LAT).astype(np.int32), np.sqrt(N_LAT).astype(np.int32),1]) # latent space - 64		
-		concat = tf.concat([z,c], 3) # concat along thirddimension
+		z =tf.reshape(z, [N_BATCH,8,8,1]) # latent space - 64
+		concat = tf.concat([z,c], 3) # concat along second dimension
+		
 		## go through additional conv layers to enforce locality in feedback
 		c4 = batch_norm(convLayer(concat, 4, 8,3,1,  update_collection=update_collection, padStr="SAME"), name='bn4', is_training=train) ## 8x8 4 channels
 		c4 = tf.nn.relu(c4)
@@ -139,88 +138,70 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c5 = batch_norm(convLayer(c4, 5, 4,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
 		c5 = tf.nn.relu(c5)
 		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
+
 		## dense layer
-		#d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
-		#d1 = tf.nn.relu(d1)
-				
-		#do1 = tf.layers.dropout(d1, rate=0.3, training=train)
-		
-		d2 = batch_norm(denseLayer(c5, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
-		d2 = tf.nn.relu(d2)
-		#
-		do2 = tf.layers.dropout(d2, rate=0.3, training=train)
 
-		d3 = batch_norm(denseLayer(do2, 7, 256, update_collection=update_collection), name='bn8', is_training=train)
-		d3 = tf.nn.tanh(d3)
-
-		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 4])
-		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		cf = tf.reduce_mean(cf,3)				
-		cf = tf.nn.relu(cf) ## output activation
-
-		## Reshape and output
-		x_hat = tf.reshape(cf, [N_BATCH, 8, 8]) ## make sure this is correct for addition with X_REAL in interpolate
-		return x_hat
-
-""" --------------- ENCODER Graph --------------------------------------------------------------"""		
-
-def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS): ## output some gaussian parameters
-	with tf.variable_scope("encoder", reuse=tf.AUTO_REUSE) as scope:
-		print("Setting up encoder graph...")
-		y = tf.reshape(y, [N_BATCH, 100, 100,1])
-		c1 = batch_norm(convLayer(y, 1, 4, 7, 3, update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 4 channels
-		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 8, 5, 3, update_collection=update_collection), name='bn2', is_training=train) ## 10x10, 8 channels
-		c2 = tf.nn.relu(c2) 
-		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 8 channels
-		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8 * 8 * 8])
-		## combine reduced conditional variable with setup input - x
-		x = tf.reshape(x, [N_BATCH, 8*8]) # fourier space - 64
-		concat = tf.concat([x,c], 1) # concat along channel dimension
-		## dense layer
-		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
+		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
 		d1 = tf.nn.relu(d1)
 				
 		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 5, 256, update_collection=update_collection), name='bn5', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 512, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
-				
-		#do2 = tf.layers.dropout(d2, rate=0.2, training=train)		
+		#do2 = tf.layers.dropout(d2, rate=0.3, training=train)
+		## Final conv layer
+		d2 = tf.reshape(d2, [N_BATCH, 8,8, 8])
+		c4 = batch_norm(convLayer(d2, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		c4 = tf.reduce_mean(c4,3)				
+		c4 = tf.nn.relu(c4) ## output activation
 
-		d3 = batch_norm(denseLayer(d2, 6, 2*N_LAT, update_collection=update_collection), name='bn6', is_training=train)
-		#d3 = tf.nn.tanh(d3) ## [-1,1]^128
+		## Reshape and output
+		x = tf.reshape(c4, [N_BATCH, 8, 8]) ## make sure this is correct for addition with X_REAL in interpolate
+		return x
+		
+""" --------------- Critic graph ---------------------------------------------------------"""	
+def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
+	with tf.variable_scope("discriminator", reuse=True) as scope:
+		print("Preparing critic graph...")
 
-		## Reshape and output		
-		lat_par = tf.reshape(d3, [N_BATCH, N_LAT, 2]) ## [:, :, 0] -> means, [:,:,1] -> log_sigma
-		return lat_par
-""" --------------------------------------------------------------------------------------------"""		
+		y = tf.reshape(y, [N_BATCH, 100, 100,1])
+		c1 = convLayer(y, 1, 4, 7, 3, spec_norm=True, update_collection=update_collection) ## 32x32, 4 chhannels
+		c1 = tf.nn.relu(c1)
+		c2 = convLayer(c1, 2, 8, 5, 3, spec_norm=True, update_collection=update_collection) ## 10x10 4 channels
+		c2 = tf.nn.relu(c2) 
+		c3 = convLayer(c2, 3, 8,3,1, spec_norm=True, update_collection=update_collection) ## 8x8 4 channels
+		c3 = tf.nn.relu(c3)
+		c = tf.reshape(c3, [N_BATCH, 8, 8, 8])
+		
+		## concat with real/fake fourier coefficients
+		x = tf.reshape(x, [N_BATCH, 8,8,1]) # fourier space - 64
+		concat = tf.concat([x,c], 3) # concat along second dimension
 
-def unload_gauss_args(lat):
-	mu = tf.squeeze(tf.slice(lat, [0, 0, 0], [-1, -1, 1]))
-	log_sigma_sq = tf.squeeze(tf.slice(lat, [0, 0, 1], [-1, -1, 1]))
-	return mu, log_sigma_sq
+		## go through additional conv layers to enforce locality in feedback
+		c4 = convLayer(concat, 4, 8,3,1, spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c4 = tf.nn.leaky_relu(c4)
 
-# reparametrization trick
-def sample(lat, N_LAT, N_BATCH): 
-	mu, log_sigma_sq = unload_gauss_args(lat) # both are [N_BATCH, 64]
-	## gauss_args is a 1D-tensor
-	eps = tf.random.normal([N_BATCH, N_LAT], mean=0.0, stddev=1.)
+		c5 = convLayer(c4, 5, 8,3,1, spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c5 = tf.nn.leaky_relu(c5)
+		## no go through dense layers
 
-	return tf.add(mu, tf.multiply(tf.exp(log_sigma_sq/2), eps)) ## [N_BATCH, 64]
+		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 * 8])
 
-def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
-	""" Calculate loss = reconstruction loss + KL loss for each data in minibatch """
-	mu, log_sigma = unload_gauss_args(lat)
-	# <log P(x | z, y)>	
+		## dense layer
 
-	reconstruction_loss = BETA*tf.nn.l2_loss(x-x_hat) #tf.reduce_mean(tf.losses.absolute_difference(x, x_hat)) 
-	# KL(Q(z | x, y) || P(z | x)) - in analytical form
-	kullback_leibler =  N_SAMPLE/N_BATCH*N_EPOCH* 0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
+		d1 = denseLayer(c5, 6, 512, spec_norm=True, update_collection=update_collection)
+		d1 = tf.nn.leaky_relu(d1)
+		do1 = tf.layers.dropout(d1, rate=0.3, training=train)		
 
-	return reconstruction_loss + kullback_leibler
+		d2 = denseLayer(do1, 7, 256, spec_norm=True, update_collection=update_collection)
+		d2 = tf.nn.leaky_relu(d2)
+		
+		do2 = tf.layers.dropout(d2, rate=0.1, training=train)
+		
+		d3 = denseLayer(do2, 8, 1, spec_norm=True, update_collection=update_collection)
+		## Reshape and output
+		D = tf.reshape(d3, [N_BATCH, 1])
+		return D ## wasserstein 
 
 def plotMatrices(yPredict, y):
 	plt.subplot(1, 2, 1)
@@ -233,13 +214,13 @@ def plotMatrices(yPredict, y):
 	
 	plt.show()
 
-""" ----------- MAIN ---------------------------------------------------------------------------"""		
-def main(argv):
 
-	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\"
-	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cVAE_forward_beta_0_alpha_001_specNorm"
-		
+""" --------------- Main function ------------------------------------------------------------"""	
+def main(argv):
+	### File paths etc
+	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cGAN_forward_alpha_1_beta_001"
+	
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
@@ -247,7 +228,7 @@ def main(argv):
 	if not os.path.exists(outPath):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
-	
+
 	fourier_folder = "inFourier"
 	input_folder = 	"in"
 	output_folder = "out"
@@ -256,26 +237,30 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
-	save_name = "HOLOVAE.ckpt"
+	save_name = "HOLOGAN_forw.ckpt"
 	save_string = os.path.join(outPath, save_name)
 
 	### Hyperparameters
 	tf.set_random_seed(42)
-	eta = 1e-4
-	eta_f = 1e-4
+	eta_D = 0.0001
+	eta_G = 0.0001
+	eta_F = 0.0001
+
 	N_BATCH = 60
 	N_VALID = 100	
+	N_CRITIC = 5
 	N_REDRAW = 5	
 	N_EPOCH = 20
 	N_LAT = 64
-	BETA = 0/64
-	ALPHA = 0.01/64
+	BETA = 0.01/64
+	ALPHA = 1.0/64
+
 	## sample size
-	N_SAMPLE = maxFile-N_BATCH
+	N_SAMPLE = maxFile - N_BATCH*N_CRITIC
 	last_index  = 0
 	print("Data set has length "+str(N_SAMPLE))
 
@@ -284,89 +269,116 @@ def main(argv):
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
+
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
-	X = tf.placeholder(dtype=tf.float32, name="X") ## Fourier input
+	X_REAL = tf.placeholder(dtype=tf.float32, name="X_REAL") ## Fourier input
+	Z = tf.placeholder(dtype=tf.float32, name="Z") ## Latent variables
 	Y = tf.placeholder(dtype=tf.float32, name="Y")
 		
 	# ROUTE THE TENSORS
-	LAT = encoder(X,Y, is_train, N_LAT, N_BATCH)
-	Z = sample(LAT, N_LAT, N_BATCH)
-	X_HAT = decoder(Z,Y, is_train, N_LAT, N_BATCH) ## GENERATOR GRAPH
-	Y_HAT = forward(X, is_train, N_BATCH)
-	Y_HAT_HAT = forward(X_HAT, is_train, N_BATCH)
-	## VALIDATION TENSORS
-	Z_VALID = tf.random.normal([N_BATCH, N_LAT], mean=0.0, stddev=1)
-	X_HAT_VALID = decoder(Z_VALID, Y, is_train, N_LAT, N_BATCH)
-
-	VAE_var_list = list(set(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="decoder")).union( tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="encoder")))
-	FORW_var_list =  tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="forward")
-
-	## Loss functions	
-	VAE_loss = setup_vae_loss(X, X_HAT, LAT, BETA, N_SAMPLE, N_EPOCH, N_BATCH)
-	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
+	X_FAKE = generator(Z,Y, is_train, N_LAT, N_BATCH) ## GENERATOR GRAPH
+	D_REAL = discriminator(X_REAL, Y, is_train, N_BATCH, update_collection="NO_OPS") ## REAL CRITIC GRAPH
+	D_FAKE = discriminator(X_FAKE,Y, is_train,N_BATCH, update_collection=None)
+	Y_HAT = forward(X_REAL, is_train, N_BATCH)
+	Y_HAT_HAT = forward(X_FAKE, is_train, N_BATCH)
+    
+	# Loss functions	
+	F_loss = tf.nn.l2_loss(Y - Y_HAT)
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
-	X_loss = tf.nn.l2_loss(X - X_HAT)
-	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
-	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
+	D_loss = tf.reduce_mean(tf.nn.softplus(D_FAKE) + tf.nn.softplus(-D_REAL))	
+	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA*tf.nn.l2_loss(X_FAKE-X_REAL) + ALPHA*Y_HAT_loss
+
+	# Group variables
+	#tvars = tf.trainable_variables()
+	D_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="discriminator")#[var for var in tvars if 'critic' in var.name]
+	G_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="generator")#[var for var in tvars if 'generator' in var.name]	
+	F_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="forward")
+
+	# Trainin operations
+	D_solver = tf.train.AdamOptimizer(
+            learning_rate=eta_D, 
+            beta1=0.5, 
+            beta2=0.9).minimize(D_loss, var_list=D_vars)
+
+	G_solver = tf.train.AdamOptimizer(
+            learning_rate=eta_G, 
+            beta1=0.5, 
+            beta2=0.9).minimize(G_loss, var_list=G_vars)
+
+	F_solver = tf.train.AdamOptimizer(
+			learning_rate=eta_F).minimize(F_loss, var_list=F_vars)
+	
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
 	# Saver
-	saver = tf.train.Saver()	
+	saver = tf.train.Saver()
+
 	if testSet:
-    		restore = True
-	""" ---- TRAINING ------------"""
+		restore = True
+	""" --------------- Session ---------------------------------------------------------------------------"""	
 	with tf.Session() as sess:
-		sess.run(initializer)    
+
+		sess.run(initializer)
 		if not restore :
-			x_err = []
-			vae_err = []
-			percent=0
-			### forward network pretraining
+
 			print("Commencing pretraining...")
 
 			for i in range(0, N_SAMPLE, N_BATCH):
 					x = load_fourier(i, N_BATCH)
 					y = load_output(i, N_BATCH)
-					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
-
+					sess.run(F_solver, feed_dict={X_REAL:x, Y:y, is_train:True})
+            
 			print("Commencing training...")
+			D_loss_array = [] # Discriminator loss
+			G_loss_array = [] # Generator loss
+			percent = 0
+			N_STEPS = N_EPOCH*N_SAMPLE/N_BATCH
 
-    		### main training		
-			for j in range(N_EPOCH):   
-				for i in range(0, N_SAMPLE, N_BATCH):
-					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
-						percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
-						x = load_fourier(i, N_BATCH)
-						y = load_output(i, N_BATCH)
-						vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
-						x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
-						x_err.append(x_loss)
-						vae_err.append(vae_loss)
-						print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
-
+			for j in range(N_EPOCH):   	
+				for i in range(0, N_SAMPLE, N_CRITIC*N_BATCH):
+					## Train generator
 					x = load_fourier(i, N_BATCH)
 					y = load_output(i, N_BATCH)
-					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
-					sess.run(VAE_solver, feed_dict={X:x, Y:y, is_train: True})			
-		
+					z = sample_Z(N_BATCH, N_LAT) 
+					sess.run(G_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
+					sess.run(F_solver, feed_dict={X_REAL:x, Y:y, is_train:True}) ## should be in the critic loop?
+
+					if i+(N_CRITIC-1)*N_BATCH < N_SAMPLE: ## make sure this is within the index bounds
+						## Train critic
+						for k in range(N_CRITIC):
+							x = load_fourier(i+k*N_BATCH, N_BATCH)	
+							y = load_output(i+k*N_BATCH, N_BATCH)
+							z = sample_Z(N_BATCH, N_LAT)
+							sess.run(D_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
+							
+					## store the progress
+					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
+						percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
+					
+						curr_D_loss = sess.run(D_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})
+						curr_G_loss = sess.run(G_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})					
+						D_loss_array.append(curr_D_loss)
+						G_loss_array.append(curr_G_loss)
+						print(str(percent) + "% ## D loss " + str(curr_D_loss) + " | G loss " + str(curr_G_loss))
+				
+					
+			    
 			plt.figure(figsize=(8, 8))
-			plt.plot(np.array(x_err), 'r-')
-			plt.plot(np.array(vae_err), 'b-')
+			plt.plot(np.array(D_loss_array), 'r-')
+			plt.plot(np.array(G_loss_array), 'b-')
 			plt.show()
 			#### SAVE #########		
 			save_path = saver.save(sess, save_string)
 			print("Model saved in path: %s" % save_path)
-			return 
+			return
 
-		#### RESTORE MODEL& apply to validate #####
+		#### RESTORE MODEL #####
 		elif restore:
 			saver.restore(sess, save_string)
 			
-
-			#### VALIDATION ########
 			for k in range(0, N_VALID):
 				testNr = last_index + k
 				if not testSet:
@@ -374,8 +386,9 @@ def main(argv):
 				y = load_output(testNr, N_BATCH)
 				for r in range(N_REDRAW):
 					fileNr = last_index + k*N_REDRAW + r
-					## draw new noise
-					x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
+					## draw new noise	
+					z = sample_Z(N_BATCH, N_LAT)
+					x_pred = sess.run(X_FAKE, feed_dict={ Y:y, Z:z, is_train: False}) 
 
 					## write the matrices to file
 					if testSet:
@@ -384,5 +397,7 @@ def main(argv):
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
+
+
 if __name__ == "__main__":
 	main(sys.argv)
