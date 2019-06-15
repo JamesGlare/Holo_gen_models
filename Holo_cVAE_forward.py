@@ -61,35 +61,43 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	pred_fourier_re = pred_fourier[:,:,0]
 	pred_fourier_im = pred_fourier[:,:,1]
 	
+	assert(real_fourier.shape == (8,8,2))
+	real_fourier_re = real_fourier[:,:,0]
+	real_fourier_im = real_fourier[:,:,1]
+
 	## build dir paths
-	pred_fourier_folder = os.path.join(baseDir, "pred_fourier")
+	pred_fourier_re_folder = os.path.join(baseDir, "pred_fourier")
 	pred_fourier_im_folder = os.path.join(baseDir, "pred_fourier_im")
 	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_folder = os.path.join(baseDir, "real_fourier")
+	real_fourier_re_folder = os.path.join(baseDir, "real_fourier")
+	real_fourier_im_folder = os.path.join(baseDir, "real_fourier_im")
 
 	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_folder):
-		os.makedirs(pred_fourier_folder)
+	if not os.path.exists(pred_fourier_re_folder):
+		os.makedirs(pred_fourier_re_folder)
 	if not os.path.exists(pred_fourier_im_folder):
-    	os.makedirs(pred_fourier_im_folder)
+		os.makedirs(pred_fourier_im_folder)
 	if not os.path.exists(real_int_folder):
 		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_folder):
-		os.makedirs(real_fourier_folder)
+	if not os.path.exists(real_fourier_re_folder):
+		os.makedirs(real_fourier_re_folder)
+	if not os.path.exists(real_fourier_im_folder):
+    		os.makedirs(real_fourier_im_folder)
 
 	## build file paths
 	nr_string = '{0:05d}'.format(iterNr)
-	pathName_pred_fourier_re = os.path.join(pred_fourier_folder, nr_string+".txt")
+	pathName_pred_fourier_re = os.path.join(pred_fourier_re_folder, nr_string+".txt")
 	pathName_pred_fourier_im = os.path.join(pred_fourier_im_folder, nr_string+".txt")
 	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier= os.path.join(real_fourier_folder, nr_string+".txt")
+	pathName_real_fourier_re = os.path.join(real_fourier_re_folder, nr_string+".txt")
+	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
 	## save matrices
 	np.savetxt(pathName_pred_fourier_re, 100.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
 	np.savetxt(pathName_pred_fourier_im, 100.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier, 100.0*real_fourier , fmt="%.1f", delimiter='\t', newline='\n')
-
+	np.savetxt(pathName_real_fourier_re, 100.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 100.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- FORWARD Graph -------------------------------------------------------------"""
 def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("forward", reuse=tf.AUTO_REUSE) as scope:
@@ -252,7 +260,7 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\130619_1W_0001s\\"
+	path = "C:\\Jannes\\learnSamples\\130619_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\130619_1W_0001s\\models\\cVAE_forw"
 		
 	## Check PATHS
@@ -272,7 +280,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
@@ -397,7 +405,7 @@ def main(argv):
 					## write the matrices to file
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-					else:				
+					else:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
