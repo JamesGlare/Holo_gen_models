@@ -205,7 +205,7 @@ def main(argv):
 		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
 	if not os.path.exists(outPath):
-    	print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 	
 	fourier_folder = "inFourier"

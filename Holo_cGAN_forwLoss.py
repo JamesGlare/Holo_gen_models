@@ -256,7 +256,7 @@ def main(argv):
 	N_REDRAW = 5	
 	N_EPOCH = 20
 	N_LAT = 64
-	BETA = 0.01/64
+	BETA = 0.0/64
 	ALPHA = 1.0/64
 
 	## sample size
@@ -288,7 +288,7 @@ def main(argv):
 	F_loss = tf.nn.l2_loss(Y - Y_HAT)
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	D_loss = tf.reduce_mean(tf.nn.softplus(D_FAKE) + tf.nn.softplus(-D_REAL))	
-	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA*tf.nn.l2_loss(X_FAKE-X_REAL) + ALPHA*Y_HAT_loss
+	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA*tf.nn.l2_loss(X_FAKE-X_REAL) 
 
 	# Group variables
 	#tvars = tf.trainable_variables()
