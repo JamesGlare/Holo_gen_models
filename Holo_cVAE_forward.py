@@ -87,29 +87,29 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		print("Setting up forward graph")
 
 		x = tf.reshape(x, [N_BATCH, 8,8,1])
-		c1 =convLayer(x, 1, 4,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c1 = batch_norm(convLayer(x, 1, 4,3,1, spec_norm=False,  update_collection=update_collection, padStr="SAME"), name='bn1', is_training=train) ## 8x8 4 channels
 		c1 = tf.nn.relu(c1)
-		c2 = convLayer(c1, 2, 4,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c2 = batch_norm(convLayer(c1, 2, 4,3,1,  spec_norm=False, update_collection=update_collection, padStr="SAME"), name='bn2', is_training=train) ## 8x8 4 channels
 		c2 = tf.nn.relu(c2)
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*4])
 
-		d1 = denseLayer(c, 3, 256, spec_norm=True, update_collection=update_collection)
+		d1 = batch_norm(denseLayer(c, 3, 256, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
 		d1 = tf.nn.relu(d1)
 		# dropout
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		#
-		d2 = denseLayer(do1, 4, 256, spec_norm=True, update_collection=update_collection)
+		d2 = batch_norm(denseLayer(do1, 4, 256, spec_norm=False, update_collection=update_collection), name='bn4', is_training=train)
 		d2 = tf.nn.relu(d2)
 
 		d = tf.reshape(d2, [N_BATCH, 8,8,4])
 		
 		## Deconvolution Layers
-		dc1 =  deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=True, update_collection=update_collection) # 10x10, 4 channels
+		dc1 = batch_norm(deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 10x10, 4 channels
 		dc1= tf.nn.relu(dc1)
-		dc2 =  deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=True, update_collection=update_collection ) # 32x32, 4 channels
+		dc2 = batch_norm(deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn6', is_training=train) # 32x32, 4 channels
 		dc2= tf.nn.relu(dc2)
-		dc3 =  deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=True, update_collection=update_collection) # 100x100, 4 channels
+		dc3 = batch_norm(deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn7', is_training=train) # 100x100, 4 channels
 		dc = tf.reduce_mean(dc3, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
@@ -126,9 +126,9 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c1 = tf.nn.relu(c1)
 		c2 = batch_norm(convLayer(c1, 2, 4, 5, 3, update_collection=update_collection), name='bn2', is_training=train) ## 10x10, 4 channels
 		c2 = tf.nn.relu(c2) 
-		c3 = batch_norm(convLayer(c2, 3, 1,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
+		c3 = batch_norm(convLayer(c2, 3, 4,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8,8, 1])
+		c = tf.reshape(c3, [N_BATCH, 8,8, 4])
 		## Now combine with the latent variables
 		z = tf.reshape(z, [N_BATCH, np.sqrt(N_LAT).astype(np.int32), np.sqrt(N_LAT).astype(np.int32),1]) # latent space - 64		
 		concat = tf.concat([z,c], 3) # concat along thirddimension
@@ -155,7 +155,7 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 
 		## Final conv layer
 		d3 = tf.reshape(d3, [N_BATCH, 8,8, 4])
-		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
+		cf = batch_norm(convLayer(d3, 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
 		cf = tf.reduce_mean(cf,3)				
 		cf = tf.nn.relu(cf) ## output activation
 
@@ -211,16 +211,13 @@ def sample(lat, N_LAT, N_BATCH):
 
 	return tf.add(mu, tf.multiply(tf.exp(log_sigma_sq/2), eps)) ## [N_BATCH, 64]
 
-def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
+def setup_vae_loss(lat, N_SAMPLE, N_EPOCH, N_BATCH):
 	""" Calculate loss = reconstruction loss + KL loss for each data in minibatch """
 	mu, log_sigma = unload_gauss_args(lat)
-	# <log P(x | z, y)>	
-
-	reconstruction_loss = BETA*tf.nn.l2_loss(x-x_hat) #tf.reduce_mean(tf.losses.absolute_difference(x, x_hat)) 
 	# KL(Q(z | x, y) || P(z | x)) - in analytical form
 	kullback_leibler =  N_SAMPLE/N_BATCH*N_EPOCH* 0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
 
-	return reconstruction_loss + kullback_leibler
+	return kullback_leibler
 
 def plotMatrices(yPredict, y):
 	plt.subplot(1, 2, 1)
@@ -236,10 +233,13 @@ def plotMatrices(yPredict, y):
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
-	## File paths etc
+	#############################################################################
 	path = "C:\\Jannes\\learnSamples\\040319_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\040319_validation\\cVAE_forward_latentCompress_specNorm"
-		
+	restore = True ### Set this True to load model from disk instead of training
+	testSet = False
+	#############################################################################
+
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
@@ -255,11 +255,6 @@ def main(argv):
 	indices = get_file_indices(os.path.join(path, output_folder))
 	maxFile = len(indices) ## number of samples in data set
 
-	#############################################################################
-	restore = True ### Set this True to load model from disk instead of training
-	testSet = False
-	#############################################################################
-
 	save_name = "HOLOVAE.ckpt"
 	save_string = os.path.join(outPath, save_name)
 
@@ -273,7 +268,7 @@ def main(argv):
 	N_EPOCH = 20
 	N_LAT = 64
 	BETA = 1.0/64
-	ALPHA = 1.0/64
+	ALPHA = 0.01/64
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
@@ -285,14 +280,14 @@ def main(argv):
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
-	# Placeholder	
+	## Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
 	X = tf.placeholder(dtype=tf.float32, name="X") ## Fourier input
 	Y = tf.placeholder(dtype=tf.float32, name="Y")
 		
-	# ROUTE THE TENSORS
+	## ROUTE THE TENSORS
 	LAT = encoder(X,Y, is_train, N_LAT, N_BATCH)	## ENCODER GRAPH
-	Z = sample(LAT, N_LAT, N_BATCH)
+	Z = sample(LAT, N_LAT, N_BATCH)					## LATENT space
 	X_HAT = decoder(Z,Y, is_train, N_LAT, N_BATCH) 	## GENERATOR GRAPH
 	Y_HAT = forward(X, is_train, N_BATCH)			## FORWARD GRAPH
 	Y_HAT_HAT = forward(X_HAT, is_train, N_BATCH)	## ""
@@ -304,11 +299,11 @@ def main(argv):
 	FORW_var_list =  tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="forward")
 
 	## Loss functions	
-	VAE_loss = setup_vae_loss(X, X_HAT, LAT, BETA, N_SAMPLE, N_EPOCH, N_BATCH)
-	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
-	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
-	X_loss = tf.nn.l2_loss(X - X_HAT)
-	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
+	VAE_loss = setup_vae_loss(LAT, N_SAMPLE, N_EPOCH, N_BATCH) ## for training encoder 
+	Y_loss = tf.nn.l2_loss(Y - Y_HAT) ## for training the forward network
+	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y) ## for training the decoder through the forward network
+	X_loss = tf.nn.l2_loss(X - X_HAT) ## rec-loss in Fourier plane
+	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + BETA*X_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
 	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
@@ -345,7 +340,7 @@ def main(argv):
 						y_loss = sess.run(Y_HAT_loss, feed_dict={X:x, Y:y, is_train: False})
 						y_err.append(y_loss)
 						vae_err.append(vae_loss)
-						print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
+						print("{} % ## Y loss {:.3f} ## VAE loss {:.3f}".format(percent, y_loss, vae_loss))
 
 					x = load_fourier(i, N_BATCH)
 					y = load_output(i, N_BATCH)
@@ -364,7 +359,6 @@ def main(argv):
 		#### RESTORE MODEL& apply to validate #####
 		elif restore:
 			saver.restore(sess, save_string)
-			
 
 			#### VALIDATION ########
 			for k in range(0, N_VALID):
