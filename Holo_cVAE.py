@@ -51,31 +51,48 @@ def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collectio
 		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 ## format matrix in windows-compatible way
 def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
+    
+	assert(pred_fourier.shape == (8,8,2))
+	pred_fourier_re = pred_fourier[:,:,0]
+	pred_fourier_im = pred_fourier[:,:,1]
+	
+	assert(real_fourier.shape == (8,8,2))
+	real_fourier_re = real_fourier[:,:,0]
+	real_fourier_im = real_fourier[:,:,1]
 
-	# build dir paths
-	pred_fourier_folder = os.path.join(baseDir, "pred_fourier")
+	## build dir paths
+	pred_fourier_re_folder = os.path.join(baseDir, "pred_fourier")
+	pred_fourier_im_folder = os.path.join(baseDir, "pred_fourier_im")
 	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_folder = os.path.join(baseDir, "real_fourier")
+	real_fourier_re_folder = os.path.join(baseDir, "real_fourier")
+	real_fourier_im_folder = os.path.join(baseDir, "real_fourier_im")
 
 	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_folder):
-		os.makedirs(pred_fourier_folder)
+	if not os.path.exists(pred_fourier_re_folder):
+		os.makedirs(pred_fourier_re_folder)
+	if not os.path.exists(pred_fourier_im_folder):
+		os.makedirs(pred_fourier_im_folder)
 	if not os.path.exists(real_int_folder):
 		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_folder):
-		os.makedirs(real_fourier_folder)
+	if not os.path.exists(real_fourier_re_folder):
+		os.makedirs(real_fourier_re_folder)
+	if not os.path.exists(real_fourier_im_folder):
+    		os.makedirs(real_fourier_im_folder)
 
-	#build file paths
+	## build file paths
 	nr_string = '{0:05d}'.format(iterNr)
-	pathName_predFourier = os.path.join(pred_fourier_folder, nr_string+".txt")
+	pathName_pred_fourier_re = os.path.join(pred_fourier_re_folder, nr_string+".txt")
+	pathName_pred_fourier_im = os.path.join(pred_fourier_im_folder, nr_string+".txt")
 	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier= os.path.join(real_fourier_folder, nr_string+".txt")
+	pathName_real_fourier_re = os.path.join(real_fourier_re_folder, nr_string+".txt")
+	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
-	# save matrices
-	np.savetxt(pathName_predFourier, 100.0*pred_fourier, fmt="%.1f", delimiter='\t', newline='\n')
+	## save matrices
+	np.savetxt(pathName_pred_fourier_re, 100.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_im, 100.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier, 100.0*real_fourier , fmt="%.1f", delimiter='\t', newline='\n')
-
+	np.savetxt(pathName_real_fourier_re, 100.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 100.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- DECODER Graph --------------------------------------------------------------"""		
 def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
@@ -110,17 +127,22 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		#
 		do2 = tf.layers.dropout(d2, rate=0.3, training=train)
 
-		d3 = batch_norm(denseLayer(do2, 7, 256, update_collection=update_collection), name='bn8', is_training=train)
+		d3 = batch_norm(denseLayer(do2, 7, 512, update_collection=update_collection), name='bn8', is_training=train)
 		d3 = tf.nn.tanh(d3)
 
 		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 4])
+		d3 = tf.reshape(d3, [N_BATCH, 8,8, 8])
 		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		cf = tf.reduce_mean(cf,3)				
-		cf = tf.nn.relu(cf) ## output activation
-
+		## Split into real and imaginary components - 4 channels each
+		cf_re = cf[:,:,:,0:4]
+		cf_im = cf[:,:,:,4:8]
+		## collapse channel dimension
+		cf_re = tf.reduce_mean(cf_re,3)
+		cf_im = tf.reduce_mean(cf_im,3)
+		
+		x_hat = tf.nn.relu(tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], 3))
 		## Reshape and output
-		x_hat = tf.reshape(cf, [N_BATCH, 8, 8]) ## make sure this is correct for addition with X_REAL in interpolate
+		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
 		return x_hat
 
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
@@ -137,7 +159,7 @@ def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		c3 = tf.nn.relu(c3)
 		c = tf.reshape(c3, [N_BATCH, 8 * 8 * 8])
 		## combine reduced conditional variable with setup input - x
-		x = tf.reshape(x, [N_BATCH, 8*8]) # fourier space - 64
+		x = tf.reshape(x, [N_BATCH, 2*8*8]) # fourier space - 64
 		concat = tf.concat([x,c], 1) # concat along channel dimension
 		## dense layer
 		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
@@ -196,29 +218,28 @@ def plotMatrices(yPredict, y):
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
-	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\030619_testSet"
-	outPath = "C:\\Jannes\\learnSamples\\030619_testSet\\cVAE"
-		
+	#############################################################################
+	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\"
+	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE"
+	restore = False ### Set this True to load model from disk instead of training
+	testSet = False
+	#############################################################################
+	
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
 	if not os.path.exists(outPath):
-    	print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
-	
-	fourier_folder = "inFourier"
+
+	re_fourier_folder = "inFourier"
+	im_fourier_folder = "inFourierIm"
 	input_folder = 	"in"
 	output_folder = "out"
 	minFileNr = 1
 	indices = get_file_indices(os.path.join(path, output_folder))
 	maxFile = len(indices) ## number of samples in data set
-
-	#############################################################################
-	restore = True ### Set this True to load model from disk instead of training
-	testSet = True
-	#############################################################################
 
 	save_name = "HOLOVAE.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -238,7 +259,9 @@ def main(argv):
 	print("Data set has length "+str(N_SAMPLE))
 
 	### Define file load functions
-	load_fourier = lambda x, nr : 1.0/100*np.squeeze(load_files(os.path.join(path, fourier_folder), nr, minFileNr+ x, indices))
+	load_re_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 

@@ -111,7 +111,7 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*8])
 
-		d1 = denseLayer(c, 3, 512, spec_norm=True, update_collection=update_collection)
+		d1 = denseLayer(c, 3, 256, spec_norm=True, update_collection=update_collection)
 		d1 = tf.nn.relu(d1)
 		# dropout
 		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
@@ -260,8 +260,8 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\130619_1W_0001s\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\130619_1W_0001s\\models\\cVAE_forw"
+	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s"
+	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE_forw"
 		
 	## Check PATHS
 	if not os.path.exists(path):
@@ -280,7 +280,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = True ### Set this True to load model from disk instead of training
+	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
@@ -296,8 +296,8 @@ def main(argv):
 	N_REDRAW = 5	
 	N_EPOCH = 20
 	N_LAT = 64
-	BETA = 0/64
-	ALPHA = 0.01/64
+	BETA = 1.0/64
+	ALPHA = 1.0/64
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
