@@ -142,8 +142,6 @@ def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_
 		## Reshape and output
 		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
 		return x_hat
-
-		
 """ --------------- Critic graph ---------------------------------------------------------"""	
 def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("discriminator", reuse=True) as scope:
@@ -204,7 +202,7 @@ def plotMatrices(yPredict, y):
 def main(argv):
 	#############################################################################
 	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\"
-	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE"
+	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cGAN"
 	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
@@ -214,7 +212,7 @@ def main(argv):
 		print("DATA SET PATH DOESN'T EXIST!")
 		sys.exit()
 	if not os.path.exists(outPath):
-    	print("MODEL/OUTPUT PATH DOESN'T EXIST!")
+		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 
 	re_fourier_folder = "inFourier"
@@ -249,8 +247,7 @@ def main(argv):
 	load_im_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
 	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices)
-
+	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
