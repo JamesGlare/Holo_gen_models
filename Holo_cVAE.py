@@ -88,11 +88,11 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
 	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 100.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 100.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
+	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 100.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 100.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- DECODER Graph --------------------------------------------------------------"""		
 def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
@@ -117,32 +117,30 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c5 = tf.nn.relu(c5)
 		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
 		## dense layer
-		#d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
-		#d1 = tf.nn.relu(d1)
+		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
+		d1 = tf.nn.relu(d1)
 				
-		#do1 = tf.layers.dropout(d1, rate=0.3, training=train)
+		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
 		
-		d2 = batch_norm(denseLayer(c5, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 6, 256, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
 		#
-		do2 = tf.layers.dropout(d2, rate=0.3, training=train)
+		do2 = tf.layers.dropout(d2, rate=0.2, training=train)
 
-		d3 = batch_norm(denseLayer(do2, 7, 512, update_collection=update_collection), name='bn8', is_training=train)
-		d3 = tf.nn.tanh(d3)
+		d3 = batch_norm(denseLayer(do2, 7, 128, update_collection=update_collection), name='bn8', is_training=train)
+		d3 = tf.nn.relu(d3)
 
 		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 8])
-		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		## Split into real and imaginary components - 4 channels each
-		cf_re = cf[:,:,:,0:4]
-		cf_im = cf[:,:,:,4:8]
-		## collapse channel dimension
-		cf_re = tf.reduce_mean(cf_re,3)
-		cf_im = tf.reduce_mean(cf_im,3)
+		d3 = tf.reshape(d3, [N_BATCH, 8,8, 2])
+		d_re = d3[:,:,:,0]
+		d_im = d3[:,:,:,1]
 		
-		x_hat = tf.nn.relu(tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], 3))
-		## Reshape and output
-		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
+		cf_re = tf.reduce_sum(batch_norm(convLayer(d_re[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3)
+		cf_im = tf.reduce_sum(batch_norm(convLayer(d_im[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3)
+		cf = tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], axis=3)
+
+		x_hat = tf.nn.relu(cf)
+
 		return x_hat
 
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
@@ -204,24 +202,32 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	return reconstruction_loss + kullback_leibler
 
-def plotMatrices(yPredict, y):
-	plt.subplot(1, 2, 1)
-	plt.imshow(yPredict)
+def plotMatrices(x_pred, x, x_predim, xin ):
+	plt.subplot(2, 2, 1)
+	plt.imshow(x_pred)
 	plt.colorbar()
 		
-	plt.subplot(1, 2, 2)	
-	plt.imshow(y)
+	plt.subplot(2, 2, 2)	
+	plt.imshow(x)
 	plt.colorbar()
 	
+	plt.subplot(2, 2, 3)	
+	plt.imshow(x_predim)
+	plt.colorbar()
+	
+	plt.subplot(2, 2, 4)	
+	plt.imshow(xin)
+	plt.colorbar()
+
 	plt.show()
 
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\"
-	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE"
-	restore = False ### Set this True to load model from disk instead of training
+	path = "C:\\Jannes\\learnSamples\\120719_blazedGrating\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\120719_blazedGrating\\models\\cVAE"
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -250,7 +256,7 @@ def main(argv):
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 20
+	N_EPOCH = 40
 	N_LAT = 64
 	BETA = 1.0
 	## sample size
@@ -259,8 +265,8 @@ def main(argv):
 	print("Data set has length "+str(N_SAMPLE))
 
 	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
 	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
@@ -327,7 +333,6 @@ def main(argv):
 		#### RESTORE MODEL& apply to validate #####
 		elif restore:
 			saver.restore(sess, save_string)
-			
 
 			#### VALIDATION ########
 			for k in range(0, N_VALID):
@@ -343,7 +348,8 @@ def main(argv):
 					## write the matrices to file
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-					else:				
+					else:
+						#plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))					
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")

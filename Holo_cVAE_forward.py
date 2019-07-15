@@ -93,11 +93,11 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
 	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 100.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 100.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
+	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 100.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 100.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- FORWARD Graph -------------------------------------------------------------"""
 def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("forward", reuse=tf.AUTO_REUSE) as scope:
@@ -184,8 +184,6 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		## Reshape and output
 		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
 		return x_hat
-
-
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
 
 def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS): ## output some gaussian parameters
@@ -260,7 +258,7 @@ def plotMatrices(yPredict, y):
 def main(argv):
 
 	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s"
+	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE_forw"
 		
 	## Check PATHS
@@ -280,7 +278,7 @@ def main(argv):
 	maxFile = len(indices) ## number of samples in data set
 
 	#############################################################################
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
@@ -304,8 +302,8 @@ def main(argv):
 	print("Data set has length "+str(N_SAMPLE))
 
 	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
 	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
@@ -406,7 +404,9 @@ def main(argv):
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
 					else:
-						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]))	
+						plotMatrices(np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))	
+						#writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 if __name__ == "__main__":

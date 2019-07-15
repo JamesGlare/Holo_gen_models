@@ -88,11 +88,11 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
 	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 100.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 100.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
+	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 100.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 100.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- Generator Graph ----------------------------------------------------------"""		
 def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("generator") as scope:
@@ -201,9 +201,9 @@ def plotMatrices(yPredict, y):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\"
-	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cGAN"
-	restore = False ### Set this True to load model from disk instead of training
+	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cGAN_recLoss"
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -243,8 +243,8 @@ def main(argv):
 	print("Data set has length "+str(N_SAMPLE))
 
 	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/100 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
 	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
 	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
 	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
@@ -280,7 +280,6 @@ def main(argv):
             beta1=0.5, 
             beta2=0.9).minimize(G_loss, var_list=G_vars)
 
-	
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
@@ -354,8 +353,10 @@ def main(argv):
 					## write the matrices to file
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-					else:				
-						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+					else:
+						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]))	
+						plotMatrices(np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))				
+						#writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 
