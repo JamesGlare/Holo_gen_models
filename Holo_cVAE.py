@@ -2,37 +2,14 @@ from __future__ import print_function
 
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-import os
 import sys
+import matplotlib.pyplot as plt
 
 from datetime import date
 from libs.ops import *
+from libs.input_helper import *
 from itertools import cycle
 """ --------------------------------------------------------------------------------------------"""
-
-
-def get_file_indices(path):
-	indices = []
-	for root, dirs, files in os.walk(path):
-		for name in files:
-			name_str = str(name)
-			if name_str.find(".txt") != -1:
-				indices.append( name_str)
-	return indices
-
-def load_files(path, nr, i, indices):
-	fileContents = []
-	for k in range(nr):
-		index = indices[i+k]
-		fileContents.append(np.loadtxt(os.path.join(path, index), delimiter='\t', unpack=False))
-	return np.array(fileContents)
-
-def check_files(path,nr, i, indices):
-	result = True
-	for k in range(nr):
-		result = result and os.path.isfile(os.path.join(path, indices[i+k]))
-	return result
 
 def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
 	### requires [minBatch, elements] shaped tensor
@@ -50,49 +27,6 @@ def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collectio
 		
 		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 ## format matrix in windows-compatible way
-def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
-    
-	assert(pred_fourier.shape == (8,8,2))
-	pred_fourier_re = pred_fourier[:,:,0]
-	pred_fourier_im = pred_fourier[:,:,1]
-	
-	assert(real_fourier.shape == (8,8,2))
-	real_fourier_re = real_fourier[:,:,0]
-	real_fourier_im = real_fourier[:,:,1]
-
-	## build dir paths
-	pred_fourier_re_folder = os.path.join(baseDir, "pred_fourier")
-	pred_fourier_im_folder = os.path.join(baseDir, "pred_fourier_im")
-	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_re_folder = os.path.join(baseDir, "real_fourier")
-	real_fourier_im_folder = os.path.join(baseDir, "real_fourier_im")
-
-	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_re_folder):
-		os.makedirs(pred_fourier_re_folder)
-	if not os.path.exists(pred_fourier_im_folder):
-		os.makedirs(pred_fourier_im_folder)
-	if not os.path.exists(real_int_folder):
-		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_re_folder):
-		os.makedirs(real_fourier_re_folder)
-	if not os.path.exists(real_fourier_im_folder):
-    		os.makedirs(real_fourier_im_folder)
-
-	## build file paths
-	nr_string = '{0:05d}'.format(iterNr)
-	pathName_pred_fourier_re = os.path.join(pred_fourier_re_folder, nr_string+".txt")
-	pathName_pred_fourier_im = os.path.join(pred_fourier_im_folder, nr_string+".txt")
-	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier_re = os.path.join(real_fourier_re_folder, nr_string+".txt")
-	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
-
-	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
-	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- DECODER Graph --------------------------------------------------------------"""		
 def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
@@ -202,24 +136,7 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	return reconstruction_loss + kullback_leibler
 
-def plotMatrices(x_pred, x, x_predim, xin ):
-	plt.subplot(2, 2, 1)
-	plt.imshow(x_pred)
-	plt.colorbar()
-		
-	plt.subplot(2, 2, 2)	
-	plt.imshow(x)
-	plt.colorbar()
-	
-	plt.subplot(2, 2, 3)	
-	plt.imshow(x_predim)
-	plt.colorbar()
-	
-	plt.subplot(2, 2, 4)	
-	plt.imshow(xin)
-	plt.colorbar()
 
-	plt.show()
 
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
@@ -239,13 +156,20 @@ def main(argv):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 
+	### Define file load functions
+	minFileNr = 1
 	re_fourier_folder = "inFourier"
 	im_fourier_folder = "inFourierIm"
 	input_folder = 	"in"
 	output_folder = "out"
-	minFileNr = 1
 	indices = get_file_indices(os.path.join(path, output_folder))
 	maxFile = len(indices) ## number of samples in data set
+
+	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
+	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
+	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
 	save_name = "HOLOVAE.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -264,12 +188,6 @@ def main(argv):
 	last_index  = 0
 	print("Data set has length "+str(N_SAMPLE))
 
-	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
-	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
-	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	

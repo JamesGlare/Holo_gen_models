@@ -7,32 +7,10 @@ import os
 import sys
 
 from datetime import date
+from libs.input_helper import *
 from libs.ops import *
 from itertools import cycle
 """ --------------------------------------------------------------------------------------------"""
-
-
-def get_file_indices(path):
-	indices = []
-	for root, dirs, files in os.walk(path):
-		for name in files:
-			name_str = str(name)
-			if name_str.find(".txt") != -1:
-				indices.append( name_str)
-	return indices
-
-def load_files(path, nr, i, indices):
-	fileContents = []
-	for k in range(nr):
-		index = indices[i+k]
-		fileContents.append(np.loadtxt(os.path.join(path, index), delimiter='\t', unpack=False))
-	return np.array(fileContents)
-
-def check_files(path,nr, i, indices):
-	result = True
-	for k in range(nr):
-		result = result and os.path.isfile(os.path.join(path, indices[i+k]))
-	return result
 
 def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
 	### requires [minBatch, elements] shaped tensor
@@ -55,78 +33,36 @@ def deconvLayer(x, nr, output_shape, kxy, stride, spec_norm=False, update_collec
 			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 
 # # format matrix in windows-compatible way
-def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 
-	assert(pred_fourier.shape == (8,8,2))
-	pred_fourier_re = pred_fourier[:,:,0]
-	pred_fourier_im = pred_fourier[:,:,1]
-	
-	assert(real_fourier.shape == (8,8,2))
-	real_fourier_re = real_fourier[:,:,0]
-	real_fourier_im = real_fourier[:,:,1]
-
-	## build dir paths
-	pred_fourier_re_folder = os.path.join(baseDir, "pred_fourier")
-	pred_fourier_im_folder = os.path.join(baseDir, "pred_fourier_im")
-	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_re_folder = os.path.join(baseDir, "real_fourier")
-	real_fourier_im_folder = os.path.join(baseDir, "real_fourier_im")
-
-	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_re_folder):
-		os.makedirs(pred_fourier_re_folder)
-	if not os.path.exists(pred_fourier_im_folder):
-		os.makedirs(pred_fourier_im_folder)
-	if not os.path.exists(real_int_folder):
-		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_re_folder):
-		os.makedirs(real_fourier_re_folder)
-	if not os.path.exists(real_fourier_im_folder):
-    		os.makedirs(real_fourier_im_folder)
-
-	## build file paths
-	nr_string = '{0:05d}'.format(iterNr)
-	pathName_pred_fourier_re = os.path.join(pred_fourier_re_folder, nr_string+".txt")
-	pathName_pred_fourier_im = os.path.join(pred_fourier_im_folder, nr_string+".txt")
-	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier_re = os.path.join(real_fourier_re_folder, nr_string+".txt")
-	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
-
-	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
-	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- FORWARD Graph -------------------------------------------------------------"""
 def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("forward", reuse=tf.AUTO_REUSE) as scope:
 		print("Setting up forward graph")
 
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) ## shoule be in this shape anyway
-		c1 = convLayer(x, 1, 8,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c1 = batch_norm(convLayer(x, 1, 8,3,1, spec_norm=False,  update_collection=update_collection, padStr="SAME"), name='bn1', is_training=train) ## 8x8 8 channels
 		c1 = tf.nn.relu(c1)
-		c2 = convLayer(c1, 2, 8,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c2 = batch_norm(convLayer(c1, 2, 8,3,1,  spec_norm=False, update_collection=update_collection, padStr="SAME"), name='bn2', is_training=train) ## 8x8 8 channels
 		c2 = tf.nn.relu(c2)
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*8])
 
-		d1 = denseLayer(c, 3, 256, spec_norm=True, update_collection=update_collection)
+		d1 = batch_norm(denseLayer(c, 3, 256, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
 		d1 = tf.nn.relu(d1)
 		# dropout
 		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
 		#
-		d2 = denseLayer(do1, 4, 256, spec_norm=True, update_collection=update_collection)
+		d2 = batch_norm(denseLayer(do1, 4, 256, spec_norm=False, update_collection=update_collection), name='bn4', is_training=train)
 		d2 = tf.nn.relu(d2)
 
 		d = tf.reshape(d2, [N_BATCH, 8,8,4])
 		
 		## Deconvolution Layers
-		dc1 =  deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=True, update_collection=update_collection) # 10x10, 4 channels
+		dc1 =  batch_norm(deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 10x10, 4 channels
 		dc1= tf.nn.relu(dc1)
-		dc2 =  deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=True, update_collection=update_collection ) # 32x32, 4 channels
+		dc2 =  batch_norm(deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn6', is_training=train) # 32x32, 4 channels
 		dc2= tf.nn.relu(dc2)
-		dc3 =  deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=True, update_collection=update_collection) # 100x100, 4 channels
+		dc3 =  batch_norm(deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn7', is_training=train) # 100x100, 4 channels
 		dc = tf.reduce_mean(dc3, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
@@ -157,32 +93,30 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c5 = tf.nn.relu(c5)
 		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
 		## dense layer
-		#d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
-		#d1 = tf.nn.relu(d1)
+		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
+		d1 = tf.nn.relu(d1)
 				
-		#do1 = tf.layers.dropout(d1, rate=0.3, training=train)
-		
-		d2 = batch_norm(denseLayer(c5, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
+		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
+
+		d2 = batch_norm(denseLayer(do1, 6, 256, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
 		#
-		do2 = tf.layers.dropout(d2, rate=0.3, training=train)
+		do2 = tf.layers.dropout(d2, rate=0.2, training=train)
 
-		d3 = batch_norm(denseLayer(do2, 7, 512, update_collection=update_collection), name='bn8', is_training=train)
-		d3 = tf.nn.tanh(d3)
+		d3 = batch_norm(denseLayer(do2, 7, 128, update_collection=update_collection), name='bn8', is_training=train)
+		d3 = tf.nn.relu(d3)
 
 		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 8])
-		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		## Split into real and imaginary components - 4 channels each
-		cf_re = cf[:,:,:,0:4]
-		cf_im = cf[:,:,:,4:8]
-		## collapse channel dimension
-		cf_re = tf.reduce_mean(cf_re,3)
-		cf_im = tf.reduce_mean(cf_im,3)
+		d3 = tf.reshape(d3, [N_BATCH, 8,8, 2])
+		d_re = d3[:,:,:,0]
+		d_im = d3[:,:,:,1]
 		
-		x_hat = tf.nn.relu(tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], 3))
-		## Reshape and output
-		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
+		cf_re = tf.reduce_sum(batch_norm(convLayer(d_re[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3)
+		cf_im = tf.reduce_sum(batch_norm(convLayer(d_im[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3)
+		cf = tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], axis=3)
+
+		x_hat = tf.nn.relu(cf)
+
 		return x_hat
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
 
@@ -243,24 +177,15 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	return reconstruction_loss + kullback_leibler
 
-def plotMatrices(yPredict, y):
-	plt.subplot(1, 2, 1)
-	plt.imshow(yPredict)
-	plt.colorbar()
-		
-	plt.subplot(1, 2, 2)	
-	plt.imshow(y)
-	plt.colorbar()
-	
-	plt.show()
-
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
-	## File paths etc
-	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cVAE_forw"
-		
+	#############################################################################
+	path = "C:\\Jannes\\learnSamples\\120719_blazedGrating\\"
+	outPath = "C:\\Jannes\\learnSamples\\120719_blazedGrating\\models\\cVAE_FORWARD"
+	restore = False ### Set this True to load model from disk instead of training
+	testSet = False
+	#############################################################################
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
@@ -269,20 +194,22 @@ def main(argv):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 	
+	### Define file load functions
+	minFileNr = 1
 	re_fourier_folder = "inFourier"
 	im_fourier_folder = "inFourierIm"
 	input_folder = 	"in"
 	output_folder = "out"
-	minFileNr = 1
 	indices = get_file_indices(os.path.join(path, output_folder))
 	maxFile = len(indices) ## number of samples in data set
 
-	#############################################################################
-	restore = True ### Set this True to load model from disk instead of training
-	testSet = False
-	#############################################################################
+	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
+	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
+	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
+	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
+	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
-	save_name = "HOLOVAE.ckpt"
+	save_name = "HOLOVAE_FORWARD.ckpt"
 	save_string = os.path.join(outPath, save_name)
 
 	### Hyperparameters
@@ -292,21 +219,14 @@ def main(argv):
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 20
+	N_EPOCH = 40
 	N_LAT = 64
-	BETA = 1.0/64
-	ALPHA = 1.0/64
+	BETA = 1.0
+	ALPHA = 1.0
 	## sample size
 	N_SAMPLE = maxFile-N_BATCH
 	last_index  = 0
 	print("Data set has length "+str(N_SAMPLE))
-
-	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
-	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
-	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
@@ -404,9 +324,7 @@ def main(argv):
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
 					else:
-						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]))	
-						plotMatrices(np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))	
-						#writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 if __name__ == "__main__":
