@@ -58,7 +58,7 @@ class data_obj(object):
             return 1.0/255 * np.squeeze(load_files(os.path.join(self.path, self.re_fourier_folder), nr, self.minFileNr+ x, self.indices))
 	    
       def _load_phi_fourier(self, x, nr) : ## be careful with the argument-function: in labview, phi lives on (-pi, pi)
-            return 1.0/np.pi * np.squeeze(load_files(os.path.join(self.path, self.im_fourier_folder), nr, self.minFileNr + x, self.indices))
+            return 1.0/(2.0*np.pi) * np.squeeze(load_files(os.path.join(self.path, self.im_fourier_folder), nr, self.minFileNr + x, self.indices))
 	
       def load_fourier(self, x, nr): 
         return np.concatenate((self._load_abs_fourier(x,nr)[:,:,:, None], self._load_phi_fourier(x,nr)[:,:,:, None]), 3)
@@ -108,10 +108,10 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 
 	## save matrices
 	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, np.pi*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
+	np.savetxt(pathName_pred_fourier_im, 2.0*np.pi*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
 	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
 	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, np.pi*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 2.0*np.pi*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 
 def plotMatrices(x_pred, x, x_pred_phi, x_phi ):
   fig = plt.figure()
