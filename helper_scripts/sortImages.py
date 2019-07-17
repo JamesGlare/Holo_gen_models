@@ -92,23 +92,30 @@ class overviewImage:
 				image_map[i,j] = (255,255,255)
 
 		return image
-	def __apply_phase_red(self, abs, phase):
-		abs_rgba = abs.convert("RGBA")
 
-		pixelMap_abs = abs.load()
-		pixelMap_phase = phase.load()
+	def __apply_phase_red(self, abs, phase, re_im=False):
+		w, h = abs.size
 
-		w,h = abs_rgba.size
+		newImg = Image.new('RGBA', (w, h),'black')
+		background= Image.new('RGB', (w,h), 'white')
+		newPixelMap = newImg.load()
+
+		pixelMap_abs = np.transpose(np.sum(np.array(abs)/3.0, axis=2))
+		pixelMap_phase = np.transpose(np.sum(np.array(phase)/3.0, axis=2))
+		
+		if re_im:
+			z = pixelMap_abs + 1j*pixelMap_phase
+			pixelMap_abs = np.abs(pixelMap_abs)
+			pixelMap_phase = np.angle(z)
+		
 		for i in range(h):
 			for j in range(w):
-				if not pixelMap_abs[i,j] == 0:
-					value = 1.0-400.*pixelMap_abs[i,j]
-				else:
-					value = 0
-					
-				pixelMap[i,j] = (int(pixelMap_phase[i,j]),0,0, int(value))
+				value = int(40.5845*pixelMap_phase[i,j]) ## 2*pi*40.4845 == 255
+				newPixelMap[i,j] = (value,0,0, int(255-pixelMap_abs[i,j]))
 
-		return abs_rgba
+		background.paste(newImg, (0,0), newImg)
+
+		return background
 
 	def __colorize(self, greyImg):
 		
@@ -124,7 +131,6 @@ class overviewImage:
 	
 	def __rescale_no_blur(self, image):
 		rescaled = Image.new('RGB', (self.fourier_y, self.fourier_x))
-		orig_width, orig_height = image.size 		
 		box_width = self.fourier_x/8
 		box_height = self.fourier_y/8
 		
