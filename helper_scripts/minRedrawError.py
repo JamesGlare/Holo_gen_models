@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/testSet_pictures"
+path = "/media/james/SSD2_JG754/110619_inv_holo_results_w_forw_cVAE/cVAE"
 #######################################################################################
 
 
@@ -78,8 +78,9 @@ min_error_image_dir = join(baseDir, "min_error_images")
 
 while getMinIndices.has_next():
 	file_nr = getMinIndices.next()
-	src_file_name = join(baseDir, str(file_nr) +"ov.png")
-	dst_file_name = join(min_error_image_dir, str(file_nr) + "ov.png")
+	file_name = str(file_nr) +"ov.png"
+	src_file_name = join(baseDir, file_name)
+	dst_file_name = join(min_error_image_dir, file_name)
 	copyfile(src_file_name, dst_file_name)
-	print("Moving file " + str(file_nr) )
+	print("Moving file " + file_name )
 

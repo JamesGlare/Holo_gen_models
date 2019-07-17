@@ -9,17 +9,17 @@ from skimage import img_as_float
 import matplotlib.pyplot as plt
 
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/030619_testSet/cWGAN"
+path = "/media/james/SSD2_JG754/110619_inv_holo_results_w_forw_cVAE/testSet_results/directInference/"
 ###############################################################################
 
 class forwardOverviewImage:
 	def __init__(self):
-		self.__margin_x = 20
-		self.__margin_y = 20
+		self.__margin_x = 5
+		self.__margin_y = 5
 		self.__pic_x = 200
 		self.__pic_y = 200
-		self.__fourier_x = 64
-		self.__fourier_y = 64
+		self.__fourier_x = 200
+		self.__fourier_y = 200
 	
 	def __total_y(self):
 		return self.__pic_y + 2*self.__margin_y

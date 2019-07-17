@@ -10,23 +10,27 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/media/james/SSD2_JG754/0306_inv_holo_results/040319_validation/directInference/"
+path = "/media/james/SSD2_JG754/110619_inv_holo_results_w_forw_cVAE/directInference"
 ###############################################################################
 class overviewImage:
 
-	def __init__(self):
-		self.margin_x = 20
-		self.margin_y = 20
+	def __init__(self, printHolo=False):
+		self.print_holo = printHolo
+		self.margin_x = 5
+		self.margin_y = 5
 		self.pic_x = 200
 		self.pic_y = 200
-		self.fourier_x = 64
-		self.fourier_y = 64
+		self.fourier_x = 200
+		self.fourier_y = 200
 		
 	def __totalY(self):
 		return 3*self.margin_y+2*self.pic_y
 
 	def __totalX(self):
-		return 4*self.margin_x+self.fourier_x+2*self.pic_x
+		if self.print_holo:
+			return 4*self.margin_x+self.fourier_x+2*self.pic_x
+		else:
+			return 3*self.margin_x+self.fourier_x+self.pic_x
 
 	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred, fourier_real):
 		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()))
@@ -44,10 +48,12 @@ class overviewImage:
 		out_image.paste(fourier_real_resized, (self.margin_x, 2*self.margin_y + self.pic_y))
 
 		## (2) paste the holo pred image
-		out_image.paste(holo_pred, (2*self.margin_x+self.fourier_x, self.margin_y))
+		if self.print_holo:
+			out_image.paste(holo_pred, (2*self.margin_x+self.fourier_x, self.margin_y))
 		
 		## (3) paste the holo real image
-		out_image.paste(holo_real, (2*self.margin_x+self.fourier_x, 2*self.margin_y + self.pic_y))
+		if self.print_holo:
+			out_image.paste(holo_real, (2*self.margin_x+self.fourier_x, 2*self.margin_y + self.pic_y))
 
 		## (4) Now, deal with the intensity images which should be scaled up!
 		int_pred_resized = int_pred.resize((self.pic_x, self.pic_y), Image.ANTIALIAS)
@@ -56,10 +62,15 @@ class overviewImage:
 		int_pred_resized = self.__colorize(int_pred_resized)
 		int_real_resized = self.__colorize(int_real_resized)
 
-		## (4.2) paste the int pred image		
-		out_image.paste(int_pred_resized, (3*self.margin_x + self.fourier_x+ self.pic_x, self.margin_y))		
+		## (4.2) paste the int pred image
+		if self.print_holo:
+			x_pos = 3*self.margin_x + self.fourier_x+ self.pic_x
+		else:
+			x_pos = 2*self.margin_x + self.fourier_x
+				
+		out_image.paste(int_pred_resized, (x_pos, self.margin_y))		
 		## (4.3) paste the int real image		
-		out_image.paste(int_real_resized, (3*self.margin_x + self.fourier_x+ self.pic_x, 2*self.margin_y + self.pic_y))
+		out_image.paste(int_real_resized, (x_pos, 2*self.margin_y + self.pic_y))
 		
 		## OPTIONAL WRITE ON IMAGE
 		#draw_img = ImageDraw.Draw(out_image)
