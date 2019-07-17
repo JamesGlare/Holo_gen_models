@@ -18,7 +18,7 @@ def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDA
 		""" Interface
 		linear(input_, output_size, name="linear", spectral_normed=False, update_collection=None, stddev=None, bias_start=0.0, with_biases=True,
            	with_w=False) """
-		return linear(x, NOUT, name=str(nr), spectral_normed=spec_norm, stddev=0.02, update_collection=update_collection) # [minBatch, NOUT]
+		return linear(x, NOUT, name=str(nr), spectral_normed=spec_norm,  update_collection=update_collection) # [minBatch, NOUT]
 
 def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
 	with tf.variable_scope("convLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
@@ -26,11 +26,11 @@ def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collectio
 		conv2d(input_, output_dim, k_h=4, k_w=4, d_h=2, d_w=2, stddev=None,
            name="conv2d", spectral_normed=False, update_collection=None, with_w=False, padding="SAME"):"""
 		
-		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
+		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride,  spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 
 def deconvLayer(x, nr, output_shape, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
 		with tf.variable_scope("deconvLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
-			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
+			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride,  spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
 
 # # format matrix in windows-compatible way
 
@@ -108,15 +108,12 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 
 		## Final conv layer
 		d3 = tf.reshape(d3, [N_BATCH, 8,8, 2])
-		d_re = d3[:,:,:,0]
-		d_im = d3[:,:,:,1]
+		d_abs = d3[:,:,:,0] ## absolute values
+		d_phi = d3[:,:,:,1] ## angles
 		
-		cf_re = tf.reduce_sum(batch_norm(convLayer(d_re[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3)
-		cf_im = tf.reduce_sum(batch_norm(convLayer(d_im[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3)
-		cf = tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], axis=3)
-
-		x_hat = tf.nn.relu(cf)
-
+		cf_abs = tf.nn.relu( tf.reduce_sum(batch_norm(convLayer(d_abs[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3))
+		cf_phi = tf.nn.tanh(tf.reduce_sum(batch_norm(convLayer(d_phi[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3))
+		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
 		return x_hat
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
 
@@ -195,19 +192,7 @@ def main(argv):
 		sys.exit()
 	
 	### Define file load functions
-	minFileNr = 1
-	re_fourier_folder = "inFourier"
-	im_fourier_folder = "inFourierIm"
-	input_folder = 	"in"
-	output_folder = "out"
-	indices = get_file_indices(os.path.join(path, output_folder))
-	maxFile = len(indices) ## number of samples in data set
-
-	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
-	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
-	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
+	data = data_obj(path)
 
 	save_name = "HOLOVAE_FORWARD.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -224,9 +209,8 @@ def main(argv):
 	BETA = 1.0
 	ALPHA = 1.0
 	## sample size
-	N_SAMPLE = maxFile-N_BATCH
-	last_index  = 0
-	print("Data set has length "+str(N_SAMPLE))
+	N_SAMPLE = data.maxFile-N_BATCH
+	print("Data set has length {}".format(N_SAMPLE))
 
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
@@ -271,8 +255,8 @@ def main(argv):
 			print("Commencing pretraining...")
 
 			for i in range(0, N_SAMPLE, N_BATCH):
-					x = load_fourier(i, N_BATCH)
-					y = load_output(i, N_BATCH)
+					x = data.load_fourier(i, N_BATCH)
+					y = data.load_output(i, N_BATCH)
 					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
 
 			print("Commencing training...")
@@ -282,16 +266,16 @@ def main(argv):
 				for i in range(0, N_SAMPLE, N_BATCH):
 					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
 						percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
-						x = load_fourier(i, N_BATCH)
-						y = load_output(i, N_BATCH)
+						x = data.load_fourier(i, N_BATCH)
+						y = data.load_output(i, N_BATCH)
 						vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
 						x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
 						x_err.append(x_loss)
 						vae_err.append(vae_loss)
 						print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
 
-					x = load_fourier(i, N_BATCH)
-					y = load_output(i, N_BATCH)
+					x = data.load_fourier(i, N_BATCH)
+					y = data.load_output(i, N_BATCH)
 					sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
 					sess.run(VAE_solver, feed_dict={X:x, Y:y, is_train: True})			
 		
@@ -311,12 +295,12 @@ def main(argv):
 
 			#### VALIDATION ########
 			for k in range(0, N_VALID):
-				testNr = last_index + k
+				testNr =  k
 				if not testSet:
-					x = load_fourier(testNr, N_BATCH)
-				y = load_output(testNr, N_BATCH)
+					x = data.load_fourier(testNr, N_BATCH)
+				y = data.load_output(testNr, N_BATCH)
 				for r in range(N_REDRAW):
-					fileNr = last_index + k*N_REDRAW + r
+					fileNr =  k*N_REDRAW + r
 					## draw new noise
 					x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
 
