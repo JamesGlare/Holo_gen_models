@@ -32,12 +32,14 @@ class overviewImage:
 		else:
 			return 3*self.margin_x+self.fourier_x+self.pic_x
 
-	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred, fourier_real):
+	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred_abs, fourier_pred_phase, fourier_real_abs,fourier_real_phase):
 		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()))
 		out_image = self.__whiten(out_image)
 		## the paste command needs the upper left corner (x,y)	
 
 		## (1) Resize the fourier images
+		fourier_pred = self.__apply_phase_red(fourier_pred_abs, fourier_pred_phase)
+		fourier_real = self.__apply_phase_red(fourier_real_abs, fourier_real_phase)
 		fourier_pred_resized = self.__rescale_no_blur(fourier_pred) #fourier_pred.resize((self.fourier_x, self.fourier_y), Image.ANTIALIAS)
 		fourier_real_resized = self.__rescale_no_blur(fourier_real) #fourier_real.resize((self.fourier_x, self.fourier_y), Image.ANTIALIAS)
 
@@ -90,7 +92,31 @@ class overviewImage:
 				image_map[i,j] = (255,255,255)
 
 		return image
-	
+
+	def __apply_phase_red(self, abs, phase, re_im=False):
+		w, h = abs.size
+
+		newImg = Image.new('RGBA', (w, h),'black')
+		background= Image.new('RGB', (w,h), 'white')
+		newPixelMap = newImg.load()
+
+		pixelMap_abs = np.transpose(np.sum(np.array(abs)/3.0, axis=2))
+		pixelMap_phase = np.transpose(np.sum(np.array(phase)/3.0, axis=2))
+		
+		if re_im:
+			z = pixelMap_abs + 1j*pixelMap_phase
+			pixelMap_abs = np.abs(pixelMap_abs)
+			pixelMap_phase = np.angle(z)
+		
+		for i in range(h):
+			for j in range(w):
+				value = int(40.5845*pixelMap_phase[i,j]) ## 2*pi*40.4845 == 255
+				newPixelMap[i,j] = (value,0,0, int(255-pixelMap_abs[i,j]))
+
+		background.paste(newImg, (0,0), newImg)
+
+		return background
+
 	def __colorize(self, greyImg):
 		
 		rgbImg = greyImg.convert("RGB") 
@@ -105,7 +131,6 @@ class overviewImage:
 	
 	def __rescale_no_blur(self, image):
 		rescaled = Image.new('RGB', (self.fourier_y, self.fourier_x))
-		orig_width, orig_height = image.size 		
 		box_width = self.fourier_x/8
 		box_height = self.fourier_y/8
 		
@@ -183,10 +208,14 @@ if file_nr:
 		int_real_im = Image.open( join(path, buildImageName("real", "int", i, fileType[0])))
 		holo_pred_im = Image.open( join(path, buildImageName("pred", "slm", i, fileType[0])))
 		holo_real_im = Image.open( join(path, buildImageName("real", "slm", i, fileType[0])))
-		fourier_pred_im = Image.open( join(path, buildImageName("pred", "fourier", i, fileType[0])))
-		fourier_real_im = Image.open( join(path, buildImageName("real", "fourier", i, fileType[0])))
+
+		fourier_pred_im_abs = Image.open( join(path, buildImageName("pred", "fourier", i, fileType[0])))
+		fourier_pred_im_phase = Image.open( join(path, buildImageName("pred", "fourierIm", i, fileType[0])))
 		
-		ovimg = ovImage.create_overview_image(int_pred_im, int_real_im, holo_pred_im, holo_real_im, fourier_pred_im, fourier_real_im)
+		fourier_real_im_abs = Image.open( join(path, buildImageName("real", "fourier", i, fileType[0])))
+		fourier_real_im_phase = Image.open( join(path, buildImageName("real", "fourierIm", i, fileType[0])))
+		
+		ovimg = ovImage.create_overview_image(int_pred_im, int_real_im, holo_pred_im, holo_real_im, fourier_pred_im_abs, fourier_pred_im_phase, fourier_real_im_abs,fourier_real_im_phase)
 		ovimg.save(join(join(path, "overviewImages"), str(i)+"ov.png"), "PNG")
 			
 else: 
