@@ -2,7 +2,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import sys
-
+from random import shuffle	
 
 def get_file_indices(path):
   indices = []
@@ -29,7 +29,7 @@ def check_files(path,nr, i, indices):
 
 class data_obj(object):
       
-      def __init__(self, path):
+      def __init__(self, path, shuffle=True):
         self.path = path
         self.minFileNr = 0  ## can be used as offset if file numbers do not begin at 0
         self.re_fourier_folder = "inFourier"  ## folder in which absolute values are located (naming is historical)
@@ -39,6 +39,9 @@ class data_obj(object):
         self.indices = get_file_indices(os.path.join(path, self.output_folder))
         self.maxFile = len(self.indices) ## number of samples in data set
 
+        if shuffle:
+            shuffle(self.indices)  ## shuffle to get rid of possible laser/optics drift over acquisition of data set
+        
         self._check_folders()
 	
       def _check_folders(self):

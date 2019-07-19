@@ -192,7 +192,7 @@ def main(argv):
 		sys.exit()
 	
 	### Define file load functions
-	data = data_obj(path)
+	data = data_obj(path, shuffle= not (restore or testSet) )
 
 	save_name = "HOLOVAE_FORWARD.ckpt"
 	save_string = os.path.join(outPath, save_name)

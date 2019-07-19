@@ -56,21 +56,18 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 				
 		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 6, 256, update_collection=update_collection), name='bn7', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
 		#
 		do2 = tf.layers.dropout(d2, rate=0.2, training=train)
-
-		d3 = batch_norm(denseLayer(do2, 7, 128, update_collection=update_collection), name='bn8', is_training=train)
-		d3 = tf.nn.relu(d3)
-
 		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 2])
-		d_abs = d3[:,:,:,0] ## absolute values
-		d_phi = d3[:,:,:,1] ## angles
+		do2 = tf.reshape(do2, [N_BATCH, 8, 8, 8])
+
+		cf = batch_norm(convLayer(do2, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+
+		cf_abs = tf.nn.relu( tf.reduce_mean(cf[:,:,:,0:4], axis=3)) ## absolute values
+		cf_phi = tf.nn.relu( tf.reduce_mean(cf[:,:,:,4:8], axis=3)) ## angles
 		
-		cf_abs = tf.nn.relu( tf.reduce_sum(batch_norm(convLayer(d_abs[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3))
-		cf_phi = tf.nn.tanh(tf.reduce_sum(batch_norm(convLayer(d_phi[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3))
 		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
 		return x_hat
 
@@ -133,14 +130,13 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	return reconstruction_loss + kullback_leibler
 
-
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\160719_blazed_point_invariance\\"
-	outPath = "C:\\Jannes\\learnSamples\\160719_blazed_point_invariance\\models\\cVAE"
-	restore = False ### Set this True to load model from disk instead of training
+	path = "C:\\Jannes\\learnSamples\\170719_blazedGrating_abs_phase\\validation"
+	outPath = "C:\\Jannes\\learnSamples\\170719_blazedGrating_abs_phase\\models\\cVAE"
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -153,7 +149,7 @@ def main(argv):
 		sys.exit()
 
 	### Define file load functions
-	data = data_obj(path)
+	data = data_obj(path, shuffle= not (restore or testSet) )
 
 	save_name = "HOLOVAE.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -164,7 +160,7 @@ def main(argv):
 	N_BATCH = 60
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 80
+	N_EPOCH = 20
 	N_LAT = 64
 	BETA = 1.0
 	## sample size
@@ -249,8 +245,8 @@ def main(argv):
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
 					else:
-						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))					
-						#writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+						#plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))					
+						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")
 if __name__ == "__main__":
