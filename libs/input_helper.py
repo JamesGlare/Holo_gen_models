@@ -29,7 +29,7 @@ def check_files(path,nr, i, indices):
 
 class data_obj(object):
       
-      def __init__(self, path, shuffle=True):
+      def __init__(self, path, shuffle_data=True):
         self.path = path
         self.minFileNr = 0  ## can be used as offset if file numbers do not begin at 0
         self.re_fourier_folder = "inFourier"  ## folder in which absolute values are located (naming is historical)
@@ -39,9 +39,10 @@ class data_obj(object):
         self.indices = get_file_indices(os.path.join(path, self.output_folder))
         self.maxFile = len(self.indices) ## number of samples in data set
 
-        if shuffle:
+        if shuffle_data:
             shuffle(self.indices)  ## shuffle to get rid of possible laser/optics drift over acquisition of data set
-        
+            print("Shuffling data set...")
+            
         self._check_folders()
 	
       def _check_folders(self):

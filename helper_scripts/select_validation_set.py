@@ -7,10 +7,10 @@ from random import shuffle
 """
 
 ##### EDIT THIS #####################
-N_VALID = 500
+N_VALID = 1000
 #####################################
 
-baseDir = "C:\\Jannes\\learnSamples\\190619_1W_0001s"
+baseDir = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw"
 
 fourier_re_folder = "inFourier"
 fourier_im_folder = "inFourierIm"
