@@ -9,24 +9,7 @@ from datetime import date
 from libs.ops import *
 from libs.input_helper import *
 from itertools import cycle
-""" --------------------------------------------------------------------------------------------"""
 
-def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
-	### requires [minBatch, elements] shaped tensor
-	with tf.variable_scope("denseLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
-		""" Interface
-		linear(input_, output_size, name="linear", spectral_normed=False, update_collection=None, stddev=None, bias_start=0.0, with_biases=True,
-           	with_w=False) """
-		return linear(x, NOUT, name=str(nr), spectral_normed=spec_norm,  update_collection=update_collection) # [minBatch, NOUT]
-
-def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
-	with tf.variable_scope("convLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
-		""" interface
-		conv2d(input_, output_dim, k_h=4, k_w=4, d_h=2, d_w=2, stddev=None,
-           name="conv2d", spectral_normed=False, update_collection=None, with_w=False, padding="SAME"):"""
-		
-		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride,  spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
-## format matrix in windows-compatible way
 """ --------------- DECODER Graph --------------------------------------------------------------"""		
 def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_OPS): ## output an x estimate
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
@@ -39,35 +22,40 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c2 = tf.nn.relu(c2) 
 		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8,8, 8])
+
+		## dropout to ensure that filters catch with redundancy
+		do0 = tf.layers.dropout(c3, rate=0.2, training=train)
+		c = tf.reshape(do0, [N_BATCH, 8,8, 8])
+
 		## Now combine with the latent variables
 		z = tf.reshape(z, [N_BATCH, np.sqrt(N_LAT).astype(np.int32), np.sqrt(N_LAT).astype(np.int32),1]) # latent space - 64		
 		concat = tf.concat([z,c], 3) # concat along thirddimension
+		
 		## go through additional conv layers to enforce locality in feedback
 		c4 = batch_norm(convLayer(concat, 4, 8,3,1,  update_collection=update_collection, padStr="SAME"), name='bn4', is_training=train) ## 8x8 4 channels
 		c4 = tf.nn.relu(c4)
 
-		c5 = batch_norm(convLayer(c4, 5, 4,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
+		c5 = batch_norm(convLayer(c4, 5, 8,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
 		c5 = tf.nn.relu(c5)
 		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
-		## dense layer
+		## dense layer -- probably required since not everything is local 
 		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
 		d1 = tf.nn.relu(d1)
-				
-		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
+		## dropout from dense layers
+		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
 		d2 = batch_norm(denseLayer(do1, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
-		#
-		do2 = tf.layers.dropout(d2, rate=0.2, training=train)
-		## Final conv layer
-		do2 = tf.reshape(do2, [N_BATCH, 8, 8, 8])
-
-		cf = batch_norm(convLayer(do2, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
-
+		
+		## Final conv layers
+		d2 = tf.reshape(d2, [N_BATCH, 8, 8, 8])
+		c6 = batch_norm(convLayer(d2, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		cf = batch_norm(convLayer(c6, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
+		## split in absolute and phase parts
 		cf_abs = tf.nn.relu( tf.reduce_mean(cf[:,:,:,0:4], axis=3)) ## absolute values
 		cf_phi = tf.nn.relu( tf.reduce_mean(cf[:,:,:,4:8], axis=3)) ## angles
 		
+		## final reshaping and return prediction
 		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
 		return x_hat
 
@@ -126,7 +114,7 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	reconstruction_loss = BETA*tf.nn.l2_loss(x-x_hat) #tf.reduce_mean(tf.losses.absolute_difference(x, x_hat)) 
 	# KL(Q(z | x, y) || P(z | x)) - in analytical form
-	kullback_leibler =  N_SAMPLE/N_BATCH*N_EPOCH* 0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
+	kullback_leibler =  0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
 
 	return reconstruction_loss + kullback_leibler
 

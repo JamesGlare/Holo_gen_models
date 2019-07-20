@@ -124,3 +124,25 @@ def batch_norm(input, is_training=True, momentum=0.9, epsilon=2e-5, in_place_upd
                                         epsilon=epsilon,
                                         is_training=is_training,
                                         scope=name)
+
+""" -------------------------------------------------------------------------------------------------------------------------
+"""
+def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
+    	### requires [minBatch, elements] shaped tensor
+	with tf.variable_scope("denseLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
+		""" Interface
+		linear(input_, output_size, name="linear", spectral_normed=False, update_collection=None, stddev=None, bias_start=0.0, with_biases=True,
+           	with_w=False) """
+		return linear(x, NOUT, name=str(nr), spectral_normed=spec_norm,  update_collection=update_collection) # [minBatch, NOUT]
+
+def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
+	with tf.variable_scope("convLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
+		""" interface
+		conv2d(input_, output_dim, k_h=4, k_w=4, d_h=2, d_w=2, stddev=None,
+           name="conv2d", spectral_normed=False, update_collection=None, with_w=False, padding="SAME"):"""
+		
+		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride,  spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
+
+def deconvLayer(x, nr, output_shape, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
+    		with tf.variable_scope("deconvLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
+			return deconv2d(x, output_shape, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride,  spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
