@@ -24,23 +24,19 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*8])
 
-		d1 = batch_norm(denseLayer(c, 3, 256, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
-		d1 = tf.nn.relu(d1)
 		# dropout
-		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
-		#
-		d2 = batch_norm(denseLayer(do1, 4, 256, spec_norm=False, update_collection=update_collection), name='bn4', is_training=train)
-		d2 = tf.nn.relu(d2)
+		do1 = tf.layers.dropout(c, rate=0.2, training=train)
+		# a single dense layer to account for nonlocal effects
+		d1 = batch_norm(denseLayer(do1, 4, 400, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
+		d1 = tf.nn.relu(d1)
 
-		d = tf.reshape(d2, [N_BATCH, 8,8,4])
+		d = tf.reshape(d1, [N_BATCH, 10,10,4])
 		
 		## Deconvolution Layers
-		dc1 =  batch_norm(deconvLayer(d, 5, [N_BATCH, 10,10,4], 3, 1, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 10x10, 4 channels
-		dc1= tf.nn.relu(dc1)
-		dc2 =  batch_norm(deconvLayer(dc1, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn6', is_training=train) # 32x32, 4 channels
-		dc2= tf.nn.relu(dc2)
-		dc3 =  batch_norm(deconvLayer(dc2, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn7', is_training=train) # 100x100, 4 channels
-		dc = tf.reduce_mean(dc3, 3) ## collapse channels 		
+		dc1 =  batch_norm(deconvLayer(d, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn4', is_training=train) # 32x32, 4 channels
+		dc1 = tf.nn.relu(dc1)
+		dc2 =  batch_norm(deconvLayer(dc1, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 100x100, 4 channels
+		dc  = tf.reduce_mean(dc2, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
 
@@ -58,38 +54,40 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		c2 = tf.nn.relu(c2) 
 		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8,8, 8])
+
+		## dropout to ensure that filters catch with redundancy
+		do0 = tf.layers.dropout(c3, rate=0.2, training=train)
+		c = tf.reshape(do0, [N_BATCH, 8,8, 8])
+
 		## Now combine with the latent variables
 		z = tf.reshape(z, [N_BATCH, np.sqrt(N_LAT).astype(np.int32), np.sqrt(N_LAT).astype(np.int32),1]) # latent space - 64		
 		concat = tf.concat([z,c], 3) # concat along thirddimension
+		
 		## go through additional conv layers to enforce locality in feedback
 		c4 = batch_norm(convLayer(concat, 4, 8,3,1,  update_collection=update_collection, padStr="SAME"), name='bn4', is_training=train) ## 8x8 4 channels
 		c4 = tf.nn.relu(c4)
 
-		c5 = batch_norm(convLayer(c4, 5, 4,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
+		c5 = batch_norm(convLayer(c4, 5, 8,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
 		c5 = tf.nn.relu(c5)
-		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
-		## dense layer
+		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 * 8])
+		## dense layer -- probably required since not everything is local 
 		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
 		d1 = tf.nn.relu(d1)
-				
-		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
-
-		d2 = batch_norm(denseLayer(do1, 6, 256, update_collection=update_collection), name='bn7', is_training=train)
-		d2 = tf.nn.relu(d2)
-		#
-		do2 = tf.layers.dropout(d2, rate=0.2, training=train)
-
-		d3 = batch_norm(denseLayer(do2, 7, 128, update_collection=update_collection), name='bn8', is_training=train)
-		d3 = tf.nn.relu(d3)
-
-		## Final conv layer
-		d3 = tf.reshape(d3, [N_BATCH, 8,8, 2])
-		d_abs = d3[:,:,:,0] ## absolute values
-		d_phi = d3[:,:,:,1] ## angles
+		## dropout from dense layers
+		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		cf_abs = tf.nn.relu( tf.reduce_sum(batch_norm(convLayer(d_abs[:,:,:,None], 8, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train), axis=3))
-		cf_phi = tf.nn.tanh(tf.reduce_sum(batch_norm(convLayer(d_phi[:,:,:,None], 9, 4,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train), axis=3))
+		d2 = batch_norm(denseLayer(do1, 6, 512, update_collection=update_collection), name='bn7', is_training=train)
+		d2 = tf.nn.relu(d2)
+		
+		## Final conv layers
+		d2 = tf.reshape(d2, [N_BATCH, 8, 8, 8])
+		c6 = batch_norm(convLayer(d2, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		cf = batch_norm(convLayer(c6, 7, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
+		## split in absolute and phase parts
+		cf_abs = tf.nn.relu( tf.reduce_mean(cf[:,:,:,0:4], axis=3)) ## absolute values
+		cf_phi = tf.nn.relu( tf.reduce_mean(cf[:,:,:,4:8], axis=3)) ## angles
+		
+		## final reshaping and return prediction
 		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
 		return x_hat
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
@@ -126,16 +124,14 @@ def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		lat_par = tf.reshape(d3, [N_BATCH, N_LAT, 2]) ## [:, :, 0] -> means, [:,:,1] -> log_sigma
 		return lat_par
 """ --------------------------------------------------------------------------------------------"""		
-
 def unload_gauss_args(lat):
-	mu = lat[:,:,0] #tf.squeeze(tf.slice(lat, [0, 0, 0], [-1, -1, 1]))
-	log_sigma_sq = lat[:,:,1] #tf.squeeze(tf.slice(lat, [0, 0, 1], [-1, -1, 1]))
+	mu = lat[:,:,0] ## [N_BATCH, N_LAT] #tf.squeeze(tf.slice(lat, [0, 0, 0], [-1, -1, 1]))
+	log_sigma_sq = lat[:,:,1] ## [N_BATCH, N_LAT] #tf.squeeze(tf.slice(lat, [0, 0, 1], [-1, -1, 1]))
 	return mu, log_sigma_sq
 
-# reparametrization trick
+# sampling & reparametrization 
 def sample(lat, N_LAT, N_BATCH): 
 	mu, log_sigma_sq = unload_gauss_args(lat) # both are [N_BATCH, 64]
-	## gauss_args is a 1D-tensor
 	eps = tf.random.normal([N_BATCH, N_LAT], mean=0.0, stddev=1.)
 
 	return tf.add(mu, tf.multiply(tf.exp(log_sigma_sq/2), eps)) ## [N_BATCH, 64]
@@ -147,17 +143,16 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 
 	reconstruction_loss = BETA*tf.nn.l2_loss(x-x_hat) #tf.reduce_mean(tf.losses.absolute_difference(x, x_hat)) 
 	# KL(Q(z | x, y) || P(z | x)) - in analytical form
-	kullback_leibler =  N_SAMPLE/N_BATCH*N_EPOCH* 0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
+	kullback_leibler =  0.5 * tf.reduce_sum(tf.exp(log_sigma) + tf.square(mu) - 1. - log_sigma) ## -KL term
 
 	return reconstruction_loss + kullback_leibler
-
 """ ----------- MAIN ---------------------------------------------------------------------------"""		
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
+	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE_FORWARD"
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	## Check PATHS
@@ -169,7 +164,7 @@ def main(argv):
 		sys.exit()
 	
 	### Define file load functions
-	data = data_obj(path, shuffle= not (restore or testSet) )
+	data = data_obj(path, shuffle_data= not (restore or testSet) )
 
 	save_name = "HOLOVAE_FORWARD.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -183,7 +178,7 @@ def main(argv):
 	N_REDRAW = 5	
 	N_EPOCH = 40
 	N_LAT = 64
-	BETA = 1.0
+	BETA = 0.1
 	ALPHA = 1.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
@@ -212,7 +207,7 @@ def main(argv):
 	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	X_loss = tf.nn.l2_loss(X - X_HAT)
-	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
+	VAE_solver = tf.train.AdamOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
 	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
@@ -285,6 +280,7 @@ def main(argv):
 					if testSet:
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
 					else:
+						#plotMatrices(np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,1]), np.squeeze(x[0,:,:,1]))					
 						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
 			print("DONE! :)")

@@ -42,7 +42,7 @@ class data_obj(object):
         if shuffle_data:
             shuffle(self.indices)  ## shuffle to get rid of possible laser/optics drift over acquisition of data set
             print("Shuffling data set...")
-            
+
         self._check_folders()
 	
       def _check_folders(self):
@@ -118,28 +118,29 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	np.savetxt(pathName_real_fourier_im, 2.0*np.pi*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 
 def plotMatrices(x_pred, x, x_pred_phi, x_phi ):
-  fig = plt.figure()
-  
-  ax1 = fig.add_subplot(221)
-  ax1.imshow(x_pred)
-  #ax1.colorbar()
-  ax1.title.set_text("r pred")
+    fig = plt.figure()
+    
+    ax1 = fig.add_subplot(221)
+    ax1.imshow(x_pred)
+    #ax1.colorbar()
+    ax1.title.set_text("r pred")
+    #plt.colorbar(subplt1, cax=ax1)
 
-  ax2 = fig.add_subplot(222)
-  ax2.imshow(x)
-  #ax2.colorbar()
-  ax2.title.set_text("r")
+    ax2 = fig.add_subplot(222)
+    ax2.imshow(x)
+    #ax2.colorbar()
+    ax2.title.set_text("r")
 
-  
-  ax3 = fig.add_subplot(223)
-  ax3.imshow(x_pred_phi)
-  #ax3.colorbar()
-  ax3.title.set_text("phi pred")
+    
+    ax3 = fig.add_subplot(223)
+    ax3.imshow(x_pred_phi)
+    #ax3.colorbar()
+    ax3.title.set_text("phi pred")
 
-  
-  ax4 = fig.add_subplot(224)
-  ax4.imshow(x_phi)
-  #ax4.colorbar()
-  ax4.title.set_text("phi")
+    
+    ax4 = fig.add_subplot(224)
+    ax4.imshow(x_phi)
+    #ax4.colorbar()
+    ax4.title.set_text("phi")
 
-  plt.show()
+    plt.show()
