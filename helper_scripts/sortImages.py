@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/home/james/current_models/cVAE"
+path = "/home/james/current_models/expert"
 _TEXT = False	## label images
 ###############################################################################
 class overviewImage:
