@@ -3,10 +3,11 @@ import numpy as np
 from os import getcwd
 from os.path import isfile, join
 from matplotlib import style
-
+from matplotlib import rc
+import matplotlib as mpl
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "/media/james/SSD2_JG754/110619_inv_holo_results_w_forw_cVAE/testSet_results/directInference"
+path = "/home/james/current_models/cVAE"
 n_step = 5
 ###############################################################################
 
@@ -42,6 +43,8 @@ def plotError(errorFile, step=n_step):
 	err = errorFile[:,0]
 	I1 = errorFile[:,1]
 	I2 = errorFile[:,2]
+	#r_err = errorFile[:,3]
+	#phi_err = errorFile[:,4]
 	
 	if step  == 5:
 		min_err = [err[i] for i in minErrorGen(err, step)]
@@ -57,20 +60,23 @@ def plotError(errorFile, step=n_step):
 		print("avg forw min err = "+ str( sum(err)/float(len(err))) )
 		min_err = sorted(err)
 	## Plot	
-	fig,ax = plt.subplots()
+	fig = plt.figure( dpi=150, figsize=(6.06, 2))
+	plt.rc('text', usetex=True)
+	plt.rc('font', family='serif')
+    
 	if step == 5:
-		plt.scatter(x, err_0, color='#CCCCCC')		
-		plt.scatter(x, err_1, color='#CCCCCC')	
-		plt.scatter(x, err_2, color='#CCCCCC')	
-		plt.scatter(x, err_3, color='#CCCCCC')	
-		plt.scatter(x, err_4, color='#CCCCCC')	
-	plt.scatter(x, min_err, color='k')
+		plt.scatter(x, err_0, color='#CCCCCC', marker='o', s=2)		
+		plt.scatter(x, err_1, color='#CCCCCC', marker='o', s=2)	
+		plt.scatter(x, err_2, color='#CCCCCC', marker='o', s=2)	
+		plt.scatter(x, err_3, color='#CCCCCC', marker='o', s=2)	
+		plt.scatter(x, err_4, color='#CCCCCC', marker='o', s=2)	
+	plt.scatter(x, min_err, color='k' , marker='s', s=3)
 
-	ax.tick_params(axis="x", direction="in")
-	ax.tick_params(axis="y", direction="in")
-	plt.ylim(0, 3500)
-	plt.xlabel('Sorted validation index') 
-	plt.ylabel('Intensity-reconstruction error [abs]')
+	plt.tick_params( direction="in", top=True, right=True)
+	#ax.tick_params(axis="y", direction="in")
+	plt.ylim(0, 4000)
+	plt.xlabel(r'Sorted validation index $r$', fontsize=11) 
+	plt.ylabel(r'Intensity-reconstruction error $\langle E \rangle$ [abs]', fontsize=11)
 	## do the magic
 	plt.show()
 

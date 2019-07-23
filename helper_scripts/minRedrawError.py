@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/media/james/SSD2_JG754/110619_inv_holo_results_w_forw_cVAE/cVAE"
+path = "/home/james/current_models/cVAE"
 #######################################################################################
 
 
