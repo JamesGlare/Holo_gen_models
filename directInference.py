@@ -3,7 +3,6 @@ import sys
 from os import listdir, makedirs, getcwd, walk
 from os.path import join, isfile, exists
 
-
 ### numeric imports
 import numpy as np
 from skimage import io
@@ -14,23 +13,10 @@ from scipy.ndimage.filters import maximum_filter
 from scipy.ndimage import label, find_objects
 import matplotlib.pyplot as plt
 
+## custom imports
+from libs.input_helper import *
+
 ### library ##############################################
-
-def get_file_indices(dirpath):
-	indices = []
-	for root, dirs, files in walk(dirpath):
-		for name in files:
-			name_str = str(name)
-			if name_str.find(".txt") != -1:
-				indices.append( name_str)
-	return indices
-
-def load_files(dirpath, nr, i, indices):
-	fileContents = []
-	for k in range(nr):
-		index = indices[i+k]
-		fileContents.append(np.loadtxt(join(dirpath, index), delimiter='\t', unpack=False))
-	return np.array(fileContents)
 
 def argmax_2d(matrix):
 	cur_max = 0
@@ -69,32 +55,6 @@ def kronecker_delta_8x8(A, i, j):
 	out[i,j] =A 
 	return out
 
-def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
-
-	# build dir paths
-	pred_fourier_folder = join(baseDir, "pred_fourier")
-	real_int_folder = join(baseDir, "real_int")
-	real_fourier_folder = join(baseDir, "real_fourier")
-
-	## if directories do not exist, create them
-	if not exists(pred_fourier_folder):
-		makedirs(pred_fourier_folder)
-	if not exists(real_int_folder):
-		makedirs(real_int_folder)
-	if not exists(real_fourier_folder):
-		makedirs(real_fourier_folder)
-
-	#build file paths
-	nr_string = '{0:05d}'.format(iterNr)
-	pathName_predFourier = join(pred_fourier_folder, nr_string+".txt")
-	pathName_real_int = join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier= join(real_fourier_folder, nr_string+".txt")
-
-	# save matrices
-	np.savetxt(pathName_predFourier, 100.0*pred_fourier, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier, 100.0*real_fourier , fmt="%.1f", delimiter='\t', newline='\n')
-
 def flip_xy(matrix):
 	return np.flip(np.flip(matrix, 0),1)
 
@@ -110,13 +70,6 @@ def centroid(data):
 
     return cx,cy
 
-def plot(m1, m2):
-	plt.subplot(1, 2, 1)
-	plt.imshow(m1)
-
-	plt.subplot(1, 2, 2)
-	plt.imshow(m2)
-	plt.show()
 
 def peak_loc_nr(intensity):
 	thrshld = 0.5*np.max(intensity)
@@ -153,18 +106,13 @@ We have two folders path/out and path/inFourier.
  (3) find a linear relation between peak positions 
 	in Fourier space and real space
 """
-### sub folder name convention 
-fourier_folder = "inFourier"
-input_folder = 	"in"
-output_folder = "out"
 
 ### Change paths ######################################################
-path = "C:\\Jannes\learnSamples\\030619_testSet"
-outPath = "E:\\110619_inv_holo_results_w_forw_cVAE\\testSet_results\\directInference"
+path =  "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
+outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\expert"
 N_VALID = 100
-testSet = True
+testSet = False
 #######################################################################
-
 
 def main(argv):
 
@@ -175,18 +123,12 @@ def main(argv):
 	if not exists(outPath):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
-	## Get file indices etc
-	minFileNr = 1
-	indices = get_file_indices(join(path, output_folder))
-	maxFile = len(indices) ## number of samples in data set
-	
-	### Define file load functions
-	load_fourier = lambda x, nr : 1.0/100*np.squeeze(load_files(join(path, fourier_folder), nr, minFileNr+ x, indices))
-	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(join(path, output_folder), nr, minFileNr + x, indices))
-
-
-	""" Linear regression of F_p(I_p) relation """
+	## create data object
+	data = data_obj(path, shuffle_data = False)
+	phase_estimate = np.zeros((8,8))
+	""" Linear regression of F_p(I_p) relation
+		Has to be done once in the beginning of the project. 
+	"""
 	"""measured = np.loadtxt(join(getcwd(), "lin_reg.txt"), delimiter='\t', skiprows=1)
 	F_y = measured[:,0]
 	F_x = measured[:,1]
@@ -196,29 +138,24 @@ def main(argv):
 	x_rel = np.polyfit(I_x, F_x, 1)
 	y_rel = np.polyfit(I_y, F_y, 1)"""
 
-	x_rel = [ -0.20208729,  11.61005693]
-	y_rel = [ -0.15410618,  11.56273613]
+	#x_rel = [ -0.20208729,  11.61005693]
+	#y_rel = [ -0.15410618,  11.56273613]
+	## hard copy the inferred relation
+	x_rel = [ 0.1304418,  -2.8861863]
+	y_rel = [ 0.12246955,  -2.09014078]
 	
+
 	mu_y = lambda cy : int(restrict(y_rel[0]*cy + y_rel[1]))
 	mu_x = lambda cx : int(restrict(x_rel[0]*cx + x_rel[1]))
 	
-	## (1) Get a list of .txt files
-	int_path = join(path,  output_folder)
-	fourier_path = join(path, fourier_folder)
-	files = [ f for f in listdir(int_path ) if ".txt" in f]
-	print("Found " + str(maxFile) + " txt files.")
-	
+
 	## (2) for file_name in files:
 	for nr in range(0, N_VALID):	
 		
-		intensity = load_output(nr,1)
+		intensity = data.load_output(nr,1)
 		if not testSet:
-			fourier =  load_fourier(nr,1)
+			fourier =  data.load_fourier(nr,1)
 		centroids = peak_loc_nr(intensity)
-		
-		#plt.figure()
-		#plt.imshow(intensity)
-		#plt.show()
 
 		fourier_estimate = np.zeros((8,8))
 		for cx, cy in centroids:
@@ -228,11 +165,14 @@ def main(argv):
 			#print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
 			value = float(2.5/2.5*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
+		
+		## I don't know how to estimate phases. So, I just create an 8x8 matrix of zeros
+		fourier_estimate_aug = np.concatenate((fourier_estimate[:,: , None], phase_estimate[:, :, None]), axis=2) # [8,8,2]
 		## (3) plot
 		if testSet:
-			writeMatrices(outPath, nr, fourier_estimate, intensity, fourier_estimate)
+			writeMatrices(outPath, nr, fourier_estimate_aug, intensity, fourier_estimate_aug)
 		else:
-			writeMatrices(outPath, nr, fourier_estimate, intensity, fourier)	 
+			writeMatrices(outPath, nr, fourier_estimate_aug, intensity, np.squeeze(fourier)	)
 		
 if __name__ == "__main__":
 	main(sys.argv)

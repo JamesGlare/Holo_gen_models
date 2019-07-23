@@ -59,13 +59,13 @@ class data_obj(object):
                   print("Data object constructed.")
             
       def _load_abs_fourier(self, x,nr) :
-            return 1.0/255 * np.squeeze(load_files(os.path.join(self.path, self.re_fourier_folder), nr, self.minFileNr+ x, self.indices))
+            return 1.0/255 * load_files(os.path.join(self.path, self.re_fourier_folder), nr, self.minFileNr+ x, self.indices)
 	    
       def _load_phi_fourier(self, x, nr) : ## be careful with the argument-function: in labview, phi lives on (-pi, pi)
-            return 1.0/(2.0*np.pi) * np.squeeze(load_files(os.path.join(self.path, self.im_fourier_folder), nr, self.minFileNr + x, self.indices))
+            return 1.0/(2.0*np.pi) * load_files(os.path.join(self.path, self.im_fourier_folder), nr, self.minFileNr + x, self.indices)
 	
       def load_fourier(self, x, nr): 
-        return np.concatenate((self._load_abs_fourier(x,nr)[:,:,:, None], self._load_phi_fourier(x,nr)[:,:,:, None]), 3)
+        return np.concatenate(( np.expand_dims(self._load_abs_fourier(x,nr), axis=3), np.expand_dims(self._load_phi_fourier(x,nr), axis=3)), 3)
 	
       def load_input(self,x, nr):
             return 1.0/255*np.squeeze(load_files(os.path.join(self.path, self.input_folder), nr, self.minFileNr + x, self.indices))
