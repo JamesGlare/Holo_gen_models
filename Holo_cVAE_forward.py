@@ -245,7 +245,7 @@ def main(argv):
 							x = data.load_fourier(i, N_BATCH)
 							y = data.load_output(i, N_BATCH)
 							vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
-							y_hat_loss = sess.run(Y_HAT_LOSS, feed_dict={X:x, Y:y, is_train:False})
+							y_hat_loss = sess.run(Y_HAT_loss, feed_dict={X:x, Y:y, is_train:False})
 							x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
 							x_err.append(x_loss)
 							y_hat_err.append(y_hat_loss)
