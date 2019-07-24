@@ -15,50 +15,51 @@ def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_
 		print("Preparing generator graph...")
 		## LAYER 1 - conv for y
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
-		c1 = batch_norm(convLayer(y, 1, 4, 7, 3, update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 4 channels
+		c1 = batch_norm(convLayer(y, 1, 4, 6, 2, update_collection=update_collection), name='bn1', is_training=train) ## 48x48, 4 channels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 8, 5, 3, update_collection=update_collection), name='bn2', is_training=train) ## 10x10, 4 channels
-		c2 = tf.nn.relu(c2) 
-		c3 = batch_norm(convLayer(c2, 3, 8,3,1, update_collection=update_collection), name='bn3', is_training=train) ## 8x8, 4 channels
+		c2 = batch_norm(convLayer(c1, 2, 4, 6, 2, update_collection=update_collection), name='bn2', is_training=train) ## 22x22, 4 channels
+		c2 = tf.nn.relu(c2)
+		do0 =  tf.layers.dropout(c2, rate=0.2, training=train)
+		c3 = batch_norm(convLayer(do0, 3, 4, 5,1, update_collection=update_collection), name='bn3', is_training=train) ## 18x18, 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8,8,8])
-		## Now combine with the latent variables
-		z = tf.reshape(z, [N_BATCH, 8,8,1]) # latent space - 64
-		concat = tf.concat([z,c], 3) # concat along second dimension
-		
-		## go through additional conv layers to enforce locality in feedback
-		c4 = batch_norm(convLayer(concat, 4, 8,3,1,  update_collection=update_collection, padStr="SAME"), name='bn4', is_training=train) ## 8x8 4 channels
+		c4 = batch_norm(convLayer(c3, 4, 4, 5,1, update_collection=update_collection), name='bn4', is_training=train) ## 14x14, 4 channels
 		c4 = tf.nn.relu(c4)
+		## dropout to ensure that filters catch with redundancy
+		do1 = tf.layers.dropout(c4, rate=0.2, training=train)
 
-		c5 = batch_norm(convLayer(c4, 5, 4,3,1, update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 4 channels
-		c5 = tf.nn.relu(c5)
-		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 *4])
-
+		## Now combine with the latent variables
+		z = tf.reshape(z, [N_BATCH, N_LAT]) # latent space, linear
+		c = tf.reshape(do1, [N_BATCH, 14*14*4]) ## 14*14*4 = 784
+		concat = tf.concat([z,c], 1) # 784 + 16 = 900
+		
 		## dense layer
 
-		d1 = batch_norm(denseLayer(c5, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
+		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
 		d1 = tf.nn.relu(d1)
 				
-		do1 = tf.layers.dropout(d1, rate=0.3, training=train)
+		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
 		d2 = batch_norm(denseLayer(do1, 5, 512, update_collection=update_collection), name='bn7', is_training=train)
 		d2 = tf.nn.relu(d2)
-		#do2 = tf.layers.dropout(d2, rate=0.3, training=train)
-		## Final conv layer
-		d3 = tf.reshape(d2, [N_BATCH, 8,8, 8])
-		cf = batch_norm(convLayer(d3, 8, 8,3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		## Split into real and imaginary components - 4 channels each
-		cf_re = cf[:,:,:,0:4]
-		cf_im = cf[:,:,:,4:8]
-		## collapse channel dimension
-		cf_re = tf.reduce_mean(cf_re,3)
-		cf_im = tf.reduce_mean(cf_im,3)
+		## Final conv layers
+		d2 = tf.reshape(d2, [N_BATCH, 8, 8, 8])
+		## split in absolute and phase parts
+		d2_abs = d2[:,:,:,0:4]
+		d2_phi = d2[:,:,:,4:8]
+		## go through final conv layer(s) each to use/enforce locality
+		"""cf_abs = batch_norm(convLayer(d2_abs, 7, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn7', is_training=train)
+		cf_phi = batch_norm(convLayer(d2_phi, 8, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		cf_abs = tf.nn.relu(cf_abs)
+		cf_phi = tf.nn.relu(cf_phi)"""
+		cf_abs = batch_norm(convLayer(d2_abs, 9, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
+		cf_phi = batch_norm(convLayer(d2_phi, 10, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train)
+		# collapse channel dimension
+		cf_abs = tf.nn.relu( tf.reduce_mean(cf_abs, axis=3)) ## absolute values
+		cf_phi = tf.nn.relu( tf.reduce_mean(cf_phi, axis=3)) ## angles
 		
-		x_hat = tf.nn.relu(tf.concat([cf_re[:,:,:,None], cf_im[:,:,:,None]], 3))
-		## Reshape and output
-		x_hat = tf.reshape(x_hat, [N_BATCH, 8, 8,2]) ## pointless - just ensure correct output dimensions
+		## final reshaping and return prediction
+		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
 		return x_hat
-
 """ --------------- Critic graph ---------------------------------------------------------"""	
 def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("discriminator", reuse=True) as scope:
@@ -69,44 +70,35 @@ def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		c1 = tf.nn.relu(c1)
 		c2 = convLayer(c1, 2, 8, 5, 3, spec_norm=True, update_collection=update_collection) ## 10x10 4 channels
 		c2 = tf.nn.relu(c2) 
-		c3 = convLayer(c2, 3, 8,3,1, spec_norm=True, update_collection=update_collection) ## 8x8 4 channels
+		c3 = convLayer(c2, 3, 8, 3, 1, spec_norm=True, update_collection=update_collection) ## 8x8 4 channels
 		c3 = tf.nn.relu(c3)
-		c = tf.reshape(c3, [N_BATCH, 8, 8, 8])
+		do0 = tf.layers.dropout(c3, rate=0.2, training=train)		
+		c = do0# tf.reshape(do0, [N_BATCH, 8, 8, 8])
 		
 		## concat with real/fake fourier coefficients
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) # fourier space - 64
 		concat = tf.concat([x,c], 3) # concat along second dimension
 
 		## go through additional conv layers to enforce locality in feedback
-		c4 = convLayer(concat, 4, 8,3,1, spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c4 = convLayer(concat, 4, 8, 3, 1, spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
 		c4 = tf.nn.leaky_relu(c4)
-
-		c5 = convLayer(c4, 5, 8,3,1, spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
-		c5 = tf.nn.leaky_relu(c5)
 		## no go through dense layers
 
-		c5 = tf.reshape(c5, [N_BATCH, 8 * 8 * 8])
+		cf = tf.reshape(c4, [N_BATCH, 8 * 8 * 8])
 
 		## dense layer
-
-		d1 = denseLayer(c5, 6, 512, spec_norm=True, update_collection=update_collection)
+		d1 = denseLayer(cf, 5, 512, spec_norm=True, update_collection=update_collection)
 		d1 = tf.nn.leaky_relu(d1)
-		do1 = tf.layers.dropout(d1, rate=0.3, training=train)		
+		do1 = tf.layers.dropout(d1, rate=0.2, training=train)		
 
-		d2 = denseLayer(do1, 7, 256, spec_norm=True, update_collection=update_collection)
+		d2 = denseLayer(do1, 6, 256, spec_norm=True, update_collection=update_collection)
 		d2 = tf.nn.leaky_relu(d2)
-		
-		do2 = tf.layers.dropout(d2, rate=0.1, training=train)
-		
-		d3 = denseLayer(do2, 8, 1, spec_norm=True, update_collection=update_collection)
-		## Reshape and output
-		D = tf.reshape(d3, [N_BATCH, 1])
-		return D ## wasserstein 
+				
+		D = denseLayer(d2, 7, 1, spec_norm=True, update_collection=update_collection)
+		return D ## Disc assessment 
 """ --------------- GAN Lib ------------------------------------------------------------"""	
-
 def sample_Z(N_BATCH, N_LAT):
-    return np.random.uniform(0, 1, size=[N_BATCH, 1, N_LAT])
-
+    return np.random.uniform(0, 1, size=[N_BATCH, N_LAT])
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
@@ -138,7 +130,7 @@ def main(argv):
 	N_CRITIC = 5
 	N_REDRAW = 5	
 	N_EPOCH = 20
-	N_LAT = 64
+	N_LAT = 16
 	BETA = 0.0
 	## sample size
 	N_SAMPLE =  data.maxFile-N_BATCH
@@ -158,7 +150,7 @@ def main(argv):
 
 	# Loss functions	
 	D_loss = tf.reduce_mean(tf.nn.softplus(D_FAKE) + tf.nn.softplus(-D_REAL))	
-	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA/64*tf.nn.l2_loss(X_FAKE-X_REAL)
+	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA*tf.nn.l2_loss(X_FAKE-X_REAL)
 	
 	# Group variables
 	#tvars = tf.trainable_variables()
@@ -175,7 +167,6 @@ def main(argv):
             learning_rate=eta_G, 
             beta1=0.5, 
             beta2=0.9).minimize(G_loss, var_list=G_vars)
-
 	
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
