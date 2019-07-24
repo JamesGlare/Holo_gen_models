@@ -29,7 +29,7 @@ def check_files(path,nr, i, indices):
 	return result
 
 class save_on_exit(object):
-      save_if_exit = False ## static variable for save/restore control flow
+      save_if_exit = True ## static variable for save/restore control flow
 
       def __init__(self, sess, save_string= "model.ckpt"):
             self.save_string = save_string

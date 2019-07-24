@@ -50,7 +50,7 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		cf_phi = batch_norm(convLayer(d2_phi, 8, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
 		cf_abs = tf.nn.relu(cf_abs)
 		cf_phi = tf.nn.relu(cf_phi)
-		cf_phi = batch_norm(convLayer(d2_phi, 9, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
+		cf_abs = batch_norm(convLayer(cf_abs, 9, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
 		cf_phi = batch_norm(convLayer(cf_phi, 10, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train)
 		# collapse 
 		cf_abs = tf.nn.relu( tf.reduce_mean(cf_abs[:,:,:,0:4], axis=3)) ## absolute values
