@@ -150,7 +150,7 @@ def main(argv):
 	N_BATCH = 100
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 1
+	N_EPOCH = 20
 	N_LAT = 16
 	BETA = 1.0
 	## sample size
