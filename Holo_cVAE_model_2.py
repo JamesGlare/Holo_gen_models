@@ -125,8 +125,8 @@ def main(argv):
 
 	#############################################################################
 	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
-	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE"
-	restore = False ### Set this True to load model from disk instead of training
+	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\test"
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -147,7 +147,7 @@ def main(argv):
 	### Hyperparameters
 	tf.set_random_seed(42)
 	eta = 1e-4
-	N_BATCH = 60
+	N_BATCH = 100
 	N_VALID = 100	
 	N_REDRAW = 5	
 	N_EPOCH = 20
@@ -179,65 +179,62 @@ def main(argv):
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
-	# Saver
-	saver = tf.train.Saver()	
-	print("Commencing training...")
 	if testSet:
     		restore = True
 	""" ---- TRAINING ------------"""
 	with tf.Session() as sess:
-		sess.run(initializer)    
-		if not restore :
-			x_err = []
-			vae_err = []
-			percent=0
-			for j in range(N_EPOCH):   
-				for i in range(0, N_SAMPLE, N_BATCH):
-					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
-						percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
+		with save_on_exit(sess, save_string) as save_guard:
+			sess.run(initializer)    
+			if not restore :
+    			print("Commencing training...")
+				x_err = []
+				vae_err = []
+				percent=0
+				for j in range(N_EPOCH):   
+					for i in range(0, N_SAMPLE, N_BATCH):
+						if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
+							percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
+							x = data.load_fourier(i, N_BATCH)
+							y = data.load_output(i, N_BATCH)
+							vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
+							x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
+							x_err.append(x_loss)
+							vae_err.append(vae_loss)
+							print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
+
 						x = data.load_fourier(i, N_BATCH)
 						y = data.load_output(i, N_BATCH)
-						vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
-						x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
-						x_err.append(x_loss)
-						vae_err.append(vae_loss)
-						print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
+						sess.run(VAE_solver, feed_dict={X:x, Y:y, is_train: True})			
+			
+				plt.figure(figsize=(8, 8))
+				plt.plot(np.array(x_err), 'r-')
+				plt.plot(np.array(vae_err), 'b-')
+				plt.show()
+				#### Return and save #########		
+				return 
 
-					x = data.load_fourier(i, N_BATCH)
-					y = data.load_output(i, N_BATCH)
-					sess.run(VAE_solver, feed_dict={X:x, Y:y, is_train: True})			
-		
-			plt.figure(figsize=(8, 8))
-			plt.plot(np.array(x_err), 'r-')
-			plt.plot(np.array(vae_err), 'b-')
-			plt.show()
-			#### SAVE #########		
-			save_path = saver.save(sess, save_string)
-			print("Model saved in path: %s" % save_path)
-			return 
+			#### RESTORE MODEL& apply to validate #####
+			elif restore:
+				save_guard.restore_model()
 
-		#### RESTORE MODEL& apply to validate #####
-		elif restore:
-			saver.restore(sess, save_string)
+				#### VALIDATION ########
+				for k in range(0, N_VALID):
+					testNr =  k
+					if not testSet:
+						x = data.load_fourier(testNr, N_BATCH)
+					y = data.load_output(testNr, N_BATCH)
+					for r in range(N_REDRAW):
+						fileNr =  k*N_REDRAW + r
+						## draw new noise
+						x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
 
-			#### VALIDATION ########
-			for k in range(0, N_VALID):
-				testNr =  k
-				if not testSet:
-					x = data.load_fourier(testNr, N_BATCH)
-				y = data.load_output(testNr, N_BATCH)
-				for r in range(N_REDRAW):
-					fileNr =  k*N_REDRAW + r
-					## draw new noise
-					x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
+						## write the matrices to file
+						if testSet:
+							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
+						else:
+							#plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))					
+							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
 
-					## write the matrices to file
-					if testSet:
-						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-					else:
-						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))					
-						#writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
-
-			print("DONE! :)")
+	print("DONE! :)")
 if __name__ == "__main__":
 	main(sys.argv)

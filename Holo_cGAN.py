@@ -7,92 +7,8 @@ import os
 import sys
 from datetime import date
 from libs.ops import *
+from libs.input_helper import *
 
-def get_file_indices(path):
-	indices = []
-	for root, dirs, files in os.walk(path):
-		for name in files:
-			name_str = str(name)
-			if name_str.find(".txt") != -1:
-				indices.append( name_str)
-	return indices
-
-def load_files(path, nr, i, indices):
-	fileContents = []
-	for k in range(nr):
-		index = indices[i+k]
-		fileContents.append(np.loadtxt(os.path.join(path, index), delimiter='\t', unpack=False))
-	return np.array(fileContents)
-
-def check_files(path,nr, i, indices):
-	result = True
-	for k in range(nr):
-		result = result and os.path.isfile(os.path.join(path, indices[i+k]))
-	return result
-
-def sample_Z(N_BATCH, N_LAT):
-    return np.random.uniform(0, 1, size=[N_BATCH, 1, N_LAT])
-
-def denseLayer(x, nr, NOUT, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS):
-	### requires [minBatch, elements] shaped tensor
-	with tf.variable_scope("denseLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
-		""" Interface
-		linear(input_, output_size, name="linear", spectral_normed=False, update_collection=None, stddev=None, bias_start=0.0, with_biases=True,
-           	with_w=False) """
-		return linear(x, NOUT, name=str(nr), spectral_normed=spec_norm, stddev=0.02, update_collection=update_collection) # [minBatch, NOUT]
-
-def convLayer(x, nr, outChannels, kxy, stride, spec_norm=False, update_collection=tf.GraphKeys.UPDATE_OPS, padStr="VALID"):
-	with tf.variable_scope("convLayer_"+str(nr), reuse=tf.AUTO_REUSE) as scope:
-		""" interface
-		conv2d(input_, output_dim, k_h=4, k_w=4, d_h=2, d_w=2, stddev=None,
-           name="conv2d", spectral_normed=False, update_collection=None, with_w=False, padding="SAME"):"""
-		
-		return conv2d(x, outChannels, k_h=kxy, k_w=kxy, name=str(nr), d_h=stride, d_w=stride, stddev=0.02, spectral_normed=spec_norm, update_collection=update_collection, padding=padStr)  
-
-## format matrix in windows-compatible way
-def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
-    
-	assert(pred_fourier.shape == (8,8,2))
-	pred_fourier_re = pred_fourier[:,:,0]
-	pred_fourier_im = pred_fourier[:,:,1]
-	
-	assert(real_fourier.shape == (8,8,2))
-	real_fourier_re = real_fourier[:,:,0]
-	real_fourier_im = real_fourier[:,:,1]
-
-	## build dir paths
-	pred_fourier_re_folder = os.path.join(baseDir, "pred_fourier")
-	pred_fourier_im_folder = os.path.join(baseDir, "pred_fourier_im")
-	real_int_folder = os.path.join(baseDir, "real_int")
-	real_fourier_re_folder = os.path.join(baseDir, "real_fourier")
-	real_fourier_im_folder = os.path.join(baseDir, "real_fourier_im")
-
-	## if directories do not exist, create them
-	if not os.path.exists(pred_fourier_re_folder):
-		os.makedirs(pred_fourier_re_folder)
-	if not os.path.exists(pred_fourier_im_folder):
-		os.makedirs(pred_fourier_im_folder)
-	if not os.path.exists(real_int_folder):
-		os.makedirs(real_int_folder)
-	if not os.path.exists(real_fourier_re_folder):
-		os.makedirs(real_fourier_re_folder)
-	if not os.path.exists(real_fourier_im_folder):
-    		os.makedirs(real_fourier_im_folder)
-
-	## build file paths
-	nr_string = '{0:05d}'.format(iterNr)
-	pathName_pred_fourier_re = os.path.join(pred_fourier_re_folder, nr_string+".txt")
-	pathName_pred_fourier_im = os.path.join(pred_fourier_im_folder, nr_string+".txt")
-	pathName_real_int = os.path.join(real_int_folder, nr_string+".txt")
-	pathName_real_fourier_re = os.path.join(real_fourier_re_folder, nr_string+".txt")
-	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
-
-	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 255.0*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
-	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 255.0*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
 """ --------------- Generator Graph ----------------------------------------------------------"""		
 def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("generator") as scope:
@@ -186,19 +102,10 @@ def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		## Reshape and output
 		D = tf.reshape(d3, [N_BATCH, 1])
 		return D ## wasserstein 
+""" --------------- GAN Lib ------------------------------------------------------------"""	
 
-def plotMatrices(yPredict, y):
-	plt.subplot(1, 2, 1)
-	plt.imshow(yPredict)
-	plt.colorbar()
-		
-	plt.subplot(1, 2, 2)	
-	plt.imshow(y)
-	plt.colorbar()
-	
-	plt.show()
-
-	
+def sample_Z(N_BATCH, N_LAT):
+    return np.random.uniform(0, 1, size=[N_BATCH, 1, N_LAT])
 
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
@@ -216,14 +123,8 @@ def main(argv):
 	if not os.path.exists(outPath):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
-
-	re_fourier_folder = "inFourier"
-	im_fourier_folder = "inFourierIm"
-	input_folder = 	"in"
-	output_folder = "out"
-	minFileNr = 1
-	indices = get_file_indices(os.path.join(path, output_folder))
-	maxFile = len(indices) ## number of samples in data set
+	### Define file load functions
+	data = data_obj(path, shuffle_data= not (restore or testSet) )
 
 	save_name = "HOLOGAN.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -232,24 +133,17 @@ def main(argv):
 	tf.set_random_seed(42)
 	eta_D = 0.0001
 	eta_G = 0.0001
-	N_BATCH = 60
+	N_BATCH = 100
 	N_VALID = 100	
 	N_CRITIC = 5
 	N_REDRAW = 5	
-	N_EPOCH = 40
+	N_EPOCH = 20
 	N_LAT = 64
 	BETA = 0.0
 	## sample size
-	N_SAMPLE = maxFile - N_BATCH*N_CRITIC
-	last_index  = 0
-	print("Data set has length "+str(N_SAMPLE))
+	N_SAMPLE =  data.maxFile-N_BATCH
+	print("Data set has length {}".format(N_SAMPLE))
 
-	### Define file load functions
-	load_re_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, re_fourier_folder), nr, minFileNr+ x, indices))
-	load_im_fourier = lambda x, nr : 1.0/255 * np.squeeze(load_files(os.path.join(path, im_fourier_folder), nr, minFileNr + x, indices))
-	load_fourier = lambda x, nr, : np.concatenate((load_re_fourier(x,nr)[:,:,:, None], load_im_fourier(x,nr)[:,:,:, None]), 3)
-	load_input = lambda x, nr : 1.0/255*np.squeeze(load_files(os.path.join(path, input_folder), nr, minFileNr + x, indices))
-	load_output = lambda x, nr: 1.0/255*np.squeeze(load_files(os.path.join(path, output_folder), nr, minFileNr + x, indices))
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
@@ -286,79 +180,74 @@ def main(argv):
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
 
-	# Saver
-	saver = tf.train.Saver()	
-	print("Commencing training...")
 	if testSet:
 		restore = True
-	""" --------------- Session ---------------------------------------------------------------------------"""	
+	""" -------------- TRAINING ---------------------------------------------------------------------"""
 	with tf.Session() as sess:
+		with save_on_exit(sess, save_string) as save_guard:
 
-		sess.run(initializer)
-		
-		D_loss_array = [] # Discriminator loss
-		G_loss_array = [] # Generator loss
-		percent = 0
-		if not restore :
-			for j in range(N_EPOCH):   	
-				for i in range(0, N_SAMPLE, N_CRITIC*N_BATCH):
-					## Train generator
-					x = load_fourier(i, N_BATCH)
-					y = load_output(i, N_BATCH)
-					z = sample_Z(N_BATCH, N_LAT) 
-					sess.run(G_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
-					
-					if i+(N_CRITIC-1)*N_BATCH < N_SAMPLE: ## make sure this is within the index bounds
-						## Train critic
-						for k in range(N_CRITIC):
-							x = load_fourier(i+k*N_BATCH, N_BATCH)	
-							y = load_output(i+k*N_BATCH, N_BATCH)
-							z = sample_Z(N_BATCH, N_LAT)
-							sess.run(D_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
-							
-					## store the progress
-					if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
-						percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
-					
-						curr_D_loss = sess.run(D_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})
-						curr_G_loss = sess.run(G_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})					
-						D_loss_array.append(curr_D_loss)
-						G_loss_array.append(curr_G_loss)
-						print(str(percent) + "% ## D loss " + str(curr_D_loss) + " | G loss " + str(curr_G_loss))
-			    
-			plt.figure(figsize=(8, 8))
-			plt.plot(np.array(D_loss_array), 'r-')
-			plt.plot(np.array(G_loss_array), 'b-')
-			plt.show()
-			#### SAVE #########		
-			save_path = saver.save(sess, save_string)
-			print("Model saved in path: %s" % save_path)
-			return
-
-		#### RESTORE MODEL #####
-		elif restore:
-			saver.restore(sess, save_string)
+			sess.run(initializer)
 			
-			for k in range(0, N_VALID):
-				testNr = last_index + k
-				if not testSet:
-					x = load_fourier(testNr, N_BATCH)
-				y = load_output(testNr, N_BATCH)
-				for r in range(N_REDRAW):
-					fileNr = last_index + k*N_REDRAW + r
-					## draw new noise	
-					z = sample_Z(N_BATCH, N_LAT)
-					x_pred = sess.run(X_FAKE, feed_dict={ Y:y, Z:z, is_train: False}) 
+			D_loss_array = [] # Discriminator loss
+			G_loss_array = [] # Generator loss
+			percent = 0
+			if not restore :
+				print("Commencing training...")
+				for j in range(N_EPOCH):   	
+					for i in range(0, N_SAMPLE, N_CRITIC*N_BATCH):
+						## Train generator
+						x = data.load_fourier(i, N_BATCH)
+						y = data.load_output(i, N_BATCH)
+						z = sample_Z(N_BATCH, N_LAT) 
+						sess.run(G_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
+						
+						if i+(N_CRITIC-1)*N_BATCH < N_SAMPLE: ## make sure this is within the index bounds
+							## Train critic
+							for k in range(N_CRITIC):
+								x = data.load_fourier(i+k*N_BATCH, N_BATCH)	
+								y = data.load_output(i+k*N_BATCH, N_BATCH)
+								z = sample_Z(N_BATCH, N_LAT)
+								sess.run(D_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
+								
+						## store the progress
+						if int(100 * ( (j*N_SAMPLE+i)/float(N_SAMPLE*N_EPOCH))) != percent :
+							percent = int( 100 * ((j*N_SAMPLE+ i)/float(N_SAMPLE*N_EPOCH)))
+						
+							curr_D_loss = sess.run(D_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})
+							curr_G_loss = sess.run(G_loss, feed_dict={X_REAL: x, Y: y, Z: z, is_train: False})					
+							D_loss_array.append(curr_D_loss)
+							G_loss_array.append(curr_G_loss)
+							print(str(percent) + "% ## D loss " + str(curr_D_loss) + " | G loss " + str(curr_G_loss))
+					
+				plt.figure(figsize=(8, 8))
+				plt.plot(np.array(D_loss_array), 'r-')
+				plt.plot(np.array(G_loss_array), 'b-')
+				plt.show()
+				#### Return and save #########		
+				return
 
-					## write the matrices to file
-					if testSet:
-						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
-					else:
-						plotMatrices(np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,0]))	
-						plotMatrices(np.squeeze(x[0,:,:,1]), np.squeeze(x_pred[0,:,:,1]))								
-						writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+			#### RESTORE MODEL #####
+			elif restore:
+				save_guard.restore_model()
+				
+				for k in range(0, N_VALID):
+					testNr = k
+					if not testSet:
+						x = data.load_fourier(testNr, N_BATCH)
+					y = data.load_output(testNr, N_BATCH)
+					for r in range(N_REDRAW):
+						fileNr = k*N_REDRAW + r
+						## draw new noise	
+						z = sample_Z(N_BATCH, N_LAT)
+						x_pred = sess.run(X_FAKE, feed_dict={ Y:y, Z:z, is_train: False}) 
 
-			print("DONE! :)")
+						## write the matrices to file
+						if testSet:
+							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
+						else:
+							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
+
+	print("DONE! :)")
 
 
 if __name__ == "__main__":
