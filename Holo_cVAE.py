@@ -152,7 +152,7 @@ def main(argv):
 	N_REDRAW = 5	
 	N_EPOCH = 20
 	N_LAT = 16
-	BETA = 1.0
+	BETA = 5.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
 	print("Data set has length {}".format(N_SAMPLE))
