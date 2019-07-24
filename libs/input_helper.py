@@ -147,11 +147,11 @@ def writeMatrices(baseDir, iterNr, pred_fourier, real_int, real_fourier):
 	pathName_real_fourier_im = os.path.join(real_fourier_im_folder, nr_string+".txt")
 
 	## save matrices
-	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_pred_fourier_im, 2.0*np.pi*pred_fourier_im, fmt="%.1f", delimiter='\t', newline='\n')	
-	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.1f", delimiter='\t', newline='\n')
-	np.savetxt(pathName_real_fourier_im, 2.0*np.pi*real_fourier_im , fmt="%.1f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_re, 255.0*pred_fourier_re, fmt="%.2f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_pred_fourier_im, 2.0*np.pi*pred_fourier_im, fmt="%.2f", delimiter='\t', newline='\n')	
+	np.savetxt(pathName_real_int, 255.0*real_int, fmt="%.2f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_re, 255.0*real_fourier_re , fmt="%.2f", delimiter='\t', newline='\n')
+	np.savetxt(pathName_real_fourier_im, 2.0*np.pi*real_fourier_im , fmt="%.2f", delimiter='\t', newline='\n')
 
 def plotMatrices(x_pred, x, x_pred_phi, x_phi ):
     fig = plt.figure()
