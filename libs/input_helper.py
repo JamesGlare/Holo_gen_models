@@ -2,7 +2,9 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import sys
+import copy as cpy
 from random import shuffle	
+import tensorflow as tf
 
 def get_file_indices(path):
   indices = []
@@ -26,6 +28,40 @@ def check_files(path,nr, i, indices):
 		result = result and os.path.isfile(os.path.join(path, indices[i+k]))
 	return result
 
+class save_on_exit(object):
+      save_if_exit = False ## static variable for save/restore control flow
+
+      def __init__(self, sess, save_string= "model.ckpt"):
+            self.save_string = save_string
+            self.saver = tf.train.Saver()
+            self.sess = sess
+
+      def __enter__(self):
+            save_on_exit.save_if_exit = True
+            print("Save-on-exit object created")
+            
+            obj = cpy.copy(self)
+            return obj
+
+      def __exit__(self, type, value, traceback):
+            try:
+                  if save_on_exit.save_if_exit:
+                        self.save_model()
+
+            except (AttributeError, TypeError):
+                  raise AssertionError("Session variable likely not valid or invalid path.")
+
+      def restore_model(self):
+            try:
+                  print("Restoring the model. Hang on...")
+                  save_on_exit.save_if_exit = False
+                  self.saver.restore(self.sess, self.save_string)
+            except (AttributeError, TypeError):
+                  raise AssertionError("Save_path is None or not a valid checkpoint.")
+
+      def save_model(self):
+            self.saver.save(self.sess, self.save_string)
+            print("Model saved in path: %s" % self.save_string)
 
 class data_obj(object):
       
