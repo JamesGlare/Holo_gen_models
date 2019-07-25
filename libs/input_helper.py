@@ -61,6 +61,7 @@ class save_on_exit(object):
 
       def save_model(self):
             self.saver.save(self.sess, self.save_string)
+            save_on_exit.save_if_exit = False ## avoid saving twice
             print("Model saved in path: %s" % self.save_string)
 
 class data_obj(object):
@@ -97,7 +98,7 @@ class data_obj(object):
       def _load_abs_fourier(self, x,nr) :
             return 1.0/255 * load_files(os.path.join(self.path, self.re_fourier_folder), nr, self.minFileNr+ x, self.indices)
 	    
-      def _load_phi_fourier(self, x, nr) : ## be careful with the argument-function: in labview, phi lives on (-pi, pi)
+      def _load_phi_fourier(self, x, nr) : ## be careful with the argument-function: in labview, phi lives on (-pi, pi) ---- I fixed that on the labview side 
             return 1.0/(2.0*np.pi) * load_files(os.path.join(self.path, self.im_fourier_folder), nr, self.minFileNr + x, self.indices)
 	
       def load_fourier(self, x, nr): 

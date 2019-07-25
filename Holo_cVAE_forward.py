@@ -179,9 +179,9 @@ def main(argv):
 	N_BATCH = 100
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 20
+	N_EPOCH = 15
 	N_LAT = 16
-	BETA = 1
+	BETA = 1.0
 	ALPHA = 5.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
@@ -224,6 +224,7 @@ def main(argv):
 			sess.run(initializer)    
 			if not restore :
 				x_err = []
+				y_hat_err = []
 				vae_err = []
 				percent=0
 				### forward network pretraining
@@ -244,10 +245,12 @@ def main(argv):
 							x = data.load_fourier(i, N_BATCH)
 							y = data.load_output(i, N_BATCH)
 							vae_loss = sess.run(VAE_loss, feed_dict={X:x, Y:y, is_train:False} )
+							y_hat_loss = sess.run(Y_HAT_loss, feed_dict={X:x, Y:y, is_train:False})
 							x_loss = sess.run(X_loss, feed_dict={X:x, Y:y, is_train: False})
 							x_err.append(x_loss)
+							y_hat_err.append(y_hat_loss)
 							vae_err.append(vae_loss)
-							print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + " ## VAE loss " + str(vae_loss))
+							print(str( percent ) + "%"+ " ## xloss " + str(x_loss) + "  ## yloss "+ str(y_hat_loss) +" ## VAE loss " + str(vae_loss))
 
 						x = data.load_fourier(i, N_BATCH)
 						y = data.load_output(i, N_BATCH)
@@ -257,6 +260,7 @@ def main(argv):
 				plt.figure(figsize=(8, 8))
 				plt.plot(np.array(x_err), 'r-')
 				plt.plot(np.array(vae_err), 'b-')
+				plt.plot(np.array(y_hat_err), 'k-')
 				plt.show()
 
 				#### Return and save #########		
