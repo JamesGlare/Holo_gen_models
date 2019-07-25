@@ -45,50 +45,48 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
 		print("Setting up the decoder graph...")
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
-		c1 = batch_norm(convLayer(y, 1, 4, 6, 2, update_collection=update_collection), name='bn1', is_training=train) ## 48x48, 4 channels
+		c1 = batch_norm(convLayer(y, 1, 8, 7, 3,  update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 8 chhannels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 4, 6, 2, update_collection=update_collection), name='bn2', is_training=train) ## 22x22, 4 channels
-		c2 = tf.nn.relu(c2)
-		do0 =  tf.layers.dropout(c2, rate=0.2, training=train)
-		c3 = batch_norm(convLayer(do0, 3, 4, 5,1, update_collection=update_collection), name='bn3', is_training=train) ## 18x18, 4 channels
-		c3 = tf.nn.relu(c3)
-		c4 = batch_norm(convLayer(c3, 4, 4, 5,1, update_collection=update_collection), name='bn4', is_training=train) ## 14x14, 4 channels
-		c4 = tf.nn.relu(c4)
-		## dropout to ensure that filters catch with redundancy
-		do1 = tf.layers.dropout(c4, rate=0.2, training=train)
-
+		c2 = batch_norm(convLayer(c1, 2, 8, 5, 3,  update_collection=update_collection), name='bn2', is_training=train) ## 10x10 8 channels
+		c2 = tf.nn.relu(c2) 
+		do0 = tf.layers.dropout(c2, rate=0.2, training=train)		
+		c3 = batch_norm(convLayer(do0, 3, 8, 3, 1,  update_collection=update_collection), name='bn3', is_training=train) ## 8x8 8 channels
+		c3 = tf.nn.relu(c3) 
 		## Now combine with the latent variables
 		z = tf.reshape(z, [N_BATCH, N_LAT]) # latent space, linear
-		c = tf.reshape(do1, [N_BATCH, 14*14*4]) ## 14*14*4 = 784
-		concat = tf.concat([z,c], 1) # 784 + 16 = 900
+		c = tf.reshape(c3, [N_BATCH, 512]) ## 8x8x8 = 512
+		concat = tf.concat([z,c], 1) # 512 + 16 = 528
 		
 		## dense layer -- probably required since not everything is local 
-		d1 = batch_norm(denseLayer(concat, 5, 512, update_collection=update_collection), name='bn5', is_training=train)
+		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
 		d1 = tf.nn.relu(d1)
 		## dropout from dense layers
-		do2 = tf.layers.dropout(d1, rate=0.2, training=train)
+		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		d2 = batch_norm(denseLayer(do2, 6, 512, update_collection=update_collection), name='bn6', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 256, update_collection=update_collection), name='bn5', is_training=train)
 		d2 = tf.nn.relu(d2)
+
+		d3 = batch_norm(denseLayer(d2, 6, 200, update_collection=update_collection), name='bn6', is_training=train)
+		d3 = tf.nn.relu(d3)
 		
 		## Final conv layers
-		d2 = tf.reshape(d2, [N_BATCH, 8, 8, 8])
+		d = tf.reshape(d3, [N_BATCH, 10, 10, 2])
 		## split in absolute and phase parts
-		d2_abs = d2[:,:,:,0:4]
-		d2_phi = d2[:,:,:,4:8]
+		d2_abs = d[:,:,:,0]
+		d2_phi = d[:,:,:,1]
 		## go through final conv layer(s) each to use/enforce locality
-		"""cf_abs = batch_norm(convLayer(d2_abs, 7, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn7', is_training=train)
-		cf_phi = batch_norm(convLayer(d2_phi, 8, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		cf_abs = batch_norm(convLayer(d2_abs[:,:,:,None], 7, 4, 3, 1, update_collection=update_collection), name='bn7', is_training=train) ## 8x8 4 channel
+		cf_phi = batch_norm(convLayer(d2_phi[:,:,:,None], 8, 4, 3, 1, update_collection=update_collection), name='bn8', is_training=train) ## 8x8 4 channel
 		cf_abs = tf.nn.relu(cf_abs)
-		cf_phi = tf.nn.relu(cf_phi)"""
-		cf_abs = batch_norm(convLayer(d2_abs, 9, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		cf_phi = batch_norm(convLayer(d2_phi, 10, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train)
+		cf_phi = tf.nn.relu(cf_phi)
+		cf_abs = batch_norm(convLayer(cf_abs, 9, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn9', is_training=train) ## 8x8 1 channel
+		cf_phi = batch_norm(convLayer(cf_phi, 10, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn10', is_training=train) ## 8x8 1 channel
 		# collapse channel dimension
-		cf_abs = tf.nn.relu( tf.reduce_mean(cf_abs, axis=3)) ## absolute values
-		cf_phi = tf.nn.relu( tf.reduce_mean(cf_phi, axis=3)) ## angles
+		cf_abs = tf.nn.relu( cf_abs ) ## absolute values, retain channel dimension...
+		cf_phi = tf.nn.relu( cf_abs)  ## angles, retain channel dimension...
 		
 		## final reshaping and return prediction
-		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
+		x_hat = tf.concat([cf_abs, cf_phi], axis=3) ## ... in order to be able to concat along it.
 		return x_hat
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
 def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS): ## output some gaussian parameters
@@ -110,21 +108,17 @@ def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		x = tf.reshape(x, [N_BATCH, 2*8*8]) # fourier space - 64
 		#concat = tf.concat([x,c], 1) # concat along channel dimension
 		## dense layer
-		d1 = batch_norm(denseLayer(x, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
+		d1 = batch_norm(denseLayer(x, 4, 128, update_collection=update_collection), name='bn4', is_training=train)
 		d1 = tf.nn.relu(d1)
 				
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 5, 256, update_collection=update_collection), name='bn5', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 64, update_collection=update_collection), name='bn5', is_training=train)
 		d2 = tf.nn.relu(d2)
 
-		d3 = batch_norm(denseLayer(d2, 6, 128, update_collection=update_collection), name='bn6', is_training=train)
-		d3 = tf.nn.relu(d3)
-				
-		d4 = batch_norm(denseLayer(d2, 7, 2*N_LAT, update_collection=update_collection), name='bn7', is_training=train)
-
+		d3 = batch_norm(denseLayer(d2, 6, 2*N_LAT, update_collection=update_collection), name='bn6', is_training=train)
 		## Reshape and output		
-		lat_par = tf.reshape(d4, [N_BATCH, N_LAT, 2]) ## [:, :, 0] -> means, [:,:,1] -> log_sigma
+		lat_par = tf.reshape(d3, [N_BATCH, N_LAT, 2]) ## [:, :, 0] -> means, [:,:,1] -> log_sigma
 		return lat_par
 """ --------------------------------------------------------------------------------------------"""		
 def unload_gauss_args(lat):
@@ -158,6 +152,7 @@ def main(argv):
 	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
+
 	## Check PATHS
 	if not os.path.exists(path):
 		print("DATA SET PATH DOESN'T EXIST!")
@@ -182,7 +177,7 @@ def main(argv):
 	N_EPOCH = 15
 	N_LAT = 16
 	BETA = 1.0
-	ALPHA = 5.0
+	ALPHA = 2.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
 	print("Data set has length {}".format(N_SAMPLE))
