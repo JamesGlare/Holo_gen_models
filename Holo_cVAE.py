@@ -118,9 +118,9 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
+	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE"
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -172,7 +172,6 @@ def main(argv):
 	X_loss = tf.nn.l2_loss(X-X_HAT)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
-
 
 	if testSet:
     		restore = True
