@@ -16,9 +16,9 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		print("Setting up forward graph")
 
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) ## shoule be in this shape anyway
-		c1 = batch_norm(convLayer(x, 1, 8,3,1, spec_norm=False,  update_collection=update_collection, padStr="SAME"), name='bn1', is_training=train) ## 8x8 8 channels
+		c1 = convLayer(x, 1, 8,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME")## 8x8 8 channels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 8,3,1,  spec_norm=False, update_collection=update_collection, padStr="SAME"), name='bn2', is_training=train) ## 8x8 8 channels
+		c2 = convLayer(c1, 2, 8,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 8 channels
 		c2 = tf.nn.relu(c2)
         ## Dense Layer
 		c = tf.reshape(c2, [N_BATCH, 8*8*8])
@@ -26,15 +26,15 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		# dropout
 		do1 = tf.layers.dropout(c, rate=0.2, training=train)
 		# a single dense layer to account for nonlocal effects
-		d1 = batch_norm(denseLayer(do1, 4, 400, spec_norm=False, update_collection=update_collection), name='bn3', is_training=train)
+		d1 = denseLayer(do1, 4, 400, spec_norm=True, update_collection=update_collection)
 		d1 = tf.nn.relu(d1)
 
 		d = tf.reshape(d1, [N_BATCH, 10,10,4])
 		
 		## Deconvolution Layers
-		dc1 =  batch_norm(deconvLayer(d, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=False, update_collection=update_collection ), name='bn4', is_training=train) # 32x32, 4 channels
+		dc1 =  deconvLayer(d, 6, [N_BATCH, 32,32,4], 5, 3, spec_norm=True, update_collection=update_collection )# 32x32, 4 channels
 		dc1 = tf.nn.relu(dc1)
-		dc2 =  batch_norm(deconvLayer(dc1, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=False, update_collection=update_collection), name='bn5', is_training=train) # 100x100, 4 channels
+		dc2 =  deconvLayer(dc1, 7, [N_BATCH, 100,100,4], 7, 3, spec_norm=True, update_collection=update_collection)# 100x100, 4 channels
 		dc  = tf.reduce_mean(dc2, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
@@ -147,9 +147,9 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE_FORWARD"
-	restore = True ### Set this True to load model from disk instead of training
+	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
+	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE_FORWARD_specNorm"
+	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 
@@ -205,7 +205,7 @@ def main(argv):
 	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	X_loss = tf.nn.l2_loss(X - X_HAT)
-	VAE_solver = tf.train.AdamOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
+	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
 	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   

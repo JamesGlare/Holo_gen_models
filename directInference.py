@@ -71,8 +71,8 @@ def centroid(data):
     return cx,cy
 
 
-def peak_loc_nr(intensity):
-	thrshld = 0.5*np.max(intensity)
+def peak_loc_nr(intensity, max_coeff=0.2):
+	thrshld = max_coeff*np.max(intensity)
 	intensity_thrshld = np.copy(intensity) ## advantages over assignment?
 	intensity_thrshld[intensity_thrshld< thrshld] = 0
 	label_img, num_obs = label(intensity_thrshld)
@@ -141,9 +141,10 @@ def main(argv):
 	#x_rel = [ -0.20208729,  11.61005693]
 	#y_rel = [ -0.15410618,  11.56273613]
 	## hard copy the inferred relation
-	x_rel = [ 0.1304418,  -2.8861863]
-	y_rel = [ 0.12246955,  -2.09014078]
-	
+	x_rel = [ 0.1304418,  -2.8861863]		## x-relative scaling
+	y_rel = [ 0.12246955,  -2.09014078]		## y-relative scaling
+	A = 1.0									## coefficient to relate peak intensity to coefficients
+	max_coeff = 0.2							## threshold coefficient -> multiplied with max value to obtain threshold
 
 	mu_y = lambda cy : int(restrict(y_rel[0]*cy + y_rel[1]))
 	mu_x = lambda cx : int(restrict(x_rel[0]*cx + x_rel[1]))
@@ -155,7 +156,7 @@ def main(argv):
 		intensity = data.load_output(nr,1)
 		if not testSet:
 			fourier =  data.load_fourier(nr,1)
-		centroids = peak_loc_nr(intensity)
+		centroids = peak_loc_nr(intensity, max_coeff=max_coeff)
 
 		fourier_estimate = np.zeros((8,8))
 		for cx, cy in centroids:
@@ -163,7 +164,7 @@ def main(argv):
 			i = mu_y(cy)
 		
 			#print(str(cy) + " " + str(cx) + " -> " + str(i) + " " + str(j))
-			value = float(2.5/2.5*intensity[int(cy), int(cx)])
+			value = float(A*intensity[int(cy), int(cx)])
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		
 		## I don't know how to estimate phases. So, I just create an 8x8 matrix of zeros
