@@ -12,53 +12,50 @@ from libs.input_helper import *
 """ --------------- Generator Graph ----------------------------------------------------------"""		
 def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("generator") as scope:
-		print("Preparing generator graph...")
-		## LAYER 1 - conv for y
+		print("Setting up the decoder graph...")
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
-		c1 = batch_norm(convLayer(y, 1, 4, 6, 2, update_collection=update_collection), name='bn1', is_training=train) ## 48x48, 4 channels
+		c1 = batch_norm(convLayer(y, 1, 8, 7, 3,  update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 8 chhannels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 4, 6, 2, update_collection=update_collection), name='bn2', is_training=train) ## 22x22, 4 channels
-		c2 = tf.nn.relu(c2)
-		do0 =  tf.layers.dropout(c2, rate=0.2, training=train)
-		c3 = batch_norm(convLayer(do0, 3, 4, 5,1, update_collection=update_collection), name='bn3', is_training=train) ## 18x18, 4 channels
-		c3 = tf.nn.relu(c3)
-		c4 = batch_norm(convLayer(c3, 4, 4, 5,1, update_collection=update_collection), name='bn4', is_training=train) ## 14x14, 4 channels
-		c4 = tf.nn.relu(c4)
-		## dropout to ensure that filters catch with redundancy
-		do1 = tf.layers.dropout(c4, rate=0.2, training=train)
-
+		c2 = batch_norm(convLayer(c1, 2, 8, 5, 3,  update_collection=update_collection), name='bn2', is_training=train) ## 10x10 8 channels
+		c2 = tf.nn.relu(c2) 
+		do0 = tf.layers.dropout(c2, rate=0.2, training=train)		
+		c3 = batch_norm(convLayer(do0, 3, 8, 3, 1,  update_collection=update_collection), name='bn3', is_training=train) ## 8x8 8 channels
+		c3 = tf.nn.relu(c3) 
 		## Now combine with the latent variables
 		z = tf.reshape(z, [N_BATCH, N_LAT]) # latent space, linear
-		c = tf.reshape(do1, [N_BATCH, 14*14*4]) ## 14*14*4 = 784
-		concat = tf.concat([z,c], 1) # 784 + 16 = 900
+		c = tf.reshape(c3, [N_BATCH, 512]) ## 8x8x8 = 512
+		concat = tf.concat([z,c], 1) # 512 + 16 = 528
 		
-		## dense layer
-
-		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn6', is_training=train)
+		## dense layer -- probably required since not everything is local 
+		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
 		d1 = tf.nn.relu(d1)
-				
+		## dropout from dense layers
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 5, 512, update_collection=update_collection), name='bn7', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 256, update_collection=update_collection), name='bn5', is_training=train)
 		d2 = tf.nn.relu(d2)
+
+		d3 = batch_norm(denseLayer(d2, 6, 200, update_collection=update_collection), name='bn6', is_training=train)
+		d3 = tf.nn.relu(d3)
+		
 		## Final conv layers
-		d2 = tf.reshape(d2, [N_BATCH, 8, 8, 8])
+		d = tf.reshape(d3, [N_BATCH, 10, 10, 2])
 		## split in absolute and phase parts
-		d2_abs = d2[:,:,:,0:4]
-		d2_phi = d2[:,:,:,4:8]
+		d2_abs = d[:,:,:,0]
+		d2_phi = d[:,:,:,1]
 		## go through final conv layer(s) each to use/enforce locality
-		"""cf_abs = batch_norm(convLayer(d2_abs, 7, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn7', is_training=train)
-		cf_phi = batch_norm(convLayer(d2_phi, 8, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn8', is_training=train)
+		cf_abs = batch_norm(convLayer(d2_abs[:,:,:,None], 7, 4, 3, 1, update_collection=update_collection), name='bn7', is_training=train) ## 8x8 4 channel
+		cf_phi = batch_norm(convLayer(d2_phi[:,:,:,None], 8, 4, 3, 1, update_collection=update_collection), name='bn8', is_training=train) ## 8x8 4 channel
 		cf_abs = tf.nn.relu(cf_abs)
-		cf_phi = tf.nn.relu(cf_phi)"""
-		cf_abs = batch_norm(convLayer(d2_abs, 9, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn9', is_training=train)
-		cf_phi = batch_norm(convLayer(d2_phi, 10, 4, 3, 1, update_collection=update_collection,  padStr="SAME"), name='bn10', is_training=train)
+		cf_phi = tf.nn.relu(cf_phi)
+		cf_abs = batch_norm(convLayer(cf_abs, 9, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn9', is_training=train) ## 8x8 1 channel
+		cf_phi = batch_norm(convLayer(cf_phi, 10, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn10', is_training=train) ## 8x8 1 channel
 		# collapse channel dimension
-		cf_abs = tf.nn.relu( tf.reduce_mean(cf_abs, axis=3)) ## absolute values
-		cf_phi = tf.nn.relu( tf.reduce_mean(cf_phi, axis=3)) ## angles
+		cf_abs = tf.nn.relu( cf_abs ) ## absolute values, retain channel dimension...
+		cf_phi = tf.nn.relu( cf_abs)  ## angles, retain channel dimension...
 		
 		## final reshaping and return prediction
-		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3)
+		x_hat = tf.concat([cf_abs, cf_phi], axis=3) ## ... in order to be able to concat along it.
 		return x_hat
 """ --------------- Critic graph ---------------------------------------------------------"""	
 def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
@@ -68,12 +65,12 @@ def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
 		c1 = convLayer(y, 1, 4, 7, 3, spec_norm=True, update_collection=update_collection) ## 32x32, 4 chhannels
 		c1 = tf.nn.relu(c1)
-		c2 = convLayer(c1, 2, 8, 5, 3, spec_norm=True, update_collection=update_collection) ## 10x10 4 channels
+		c2 = convLayer(c1, 2, 8, 5, 3, spec_norm=True, update_collection=update_collection) ## 10x10 8 channels
 		c2 = tf.nn.relu(c2) 
-		c3 = convLayer(c2, 3, 8, 3, 1, spec_norm=True, update_collection=update_collection) ## 8x8 4 channels
-		c3 = tf.nn.relu(c3)
-		do0 = tf.layers.dropout(c3, rate=0.2, training=train)		
-		c = do0# tf.reshape(do0, [N_BATCH, 8, 8, 8])
+		do0 = tf.layers.dropout(c2, rate=0.2, training=train)		
+
+		c3 = convLayer(do0, 3, 8, 3, 1, spec_norm=True, update_collection=update_collection) ## 8x8 8 channels
+		c = tf.nn.relu(c3)
 		
 		## concat with real/fake fourier coefficients
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) # fourier space - 64
@@ -86,7 +83,6 @@ def discriminator(x, y, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OP
 
 		cf = tf.reshape(c4, [N_BATCH, 8 * 8 * 8])
 
-		## dense layer
 		d1 = denseLayer(cf, 5, 512, spec_norm=True, update_collection=update_collection)
 		d1 = tf.nn.leaky_relu(d1)
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)		
@@ -102,9 +98,9 @@ def sample_Z(N_BATCH, N_LAT):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190619_1W_0001s\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\190619_models\\cGAN"
-	restore = True ### Set this True to load model from disk instead of training
+	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
+	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cGAN"
+	restore = False ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -129,9 +125,9 @@ def main(argv):
 	N_VALID = 100	
 	N_CRITIC = 5
 	N_REDRAW = 5	
-	N_EPOCH = 20
+	N_EPOCH = 15
 	N_LAT = 16
-	BETA = 0.0
+	BETA = 1.0
 	## sample size
 	N_SAMPLE =  data.maxFile-N_BATCH
 	print("Data set has length {}".format(N_SAMPLE))
