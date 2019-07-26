@@ -205,7 +205,7 @@ def main(argv):
 	Y_loss = tf.nn.l2_loss(Y - Y_HAT)
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	X_loss = tf.nn.l2_loss(X - X_HAT)
-	VAE_solver = tf.train.AdamOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
+	VAE_solver = tf.train.RMSPropOptimizer(learning_rate=eta).minimize(VAE_loss + ALPHA*Y_HAT_loss, var_list=VAE_var_list)
 	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
