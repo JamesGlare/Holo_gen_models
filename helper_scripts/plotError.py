@@ -7,8 +7,8 @@ from matplotlib import rc
 import matplotlib as mpl
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "/home/james/current_models/cVAE"
-n_step = 5
+path = "C:\\Jannes\\results\\cVAE"
+n_step = 1
 ###############################################################################
 
 def minErrorGen(errorList, step=5):
@@ -61,8 +61,8 @@ def plotError(errorFile, step=n_step):
 		min_err = sorted(err)
 	## Plot	
 	fig = plt.figure( dpi=150, figsize=(6.06, 2))
-	plt.rc('text', usetex=True)
-	plt.rc('font', family='serif')
+	#plt.rc('text', usetex=True)
+	#plt.rc('font', family='serif')
     
 	if step == 5:
 		plt.scatter(x, err_0, color='#CCCCCC', marker='o', s=2)		

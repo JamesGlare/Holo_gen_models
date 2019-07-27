@@ -12,7 +12,7 @@ from libs.input_helper import *
 """ --------------- Generator Graph ----------------------------------------------------------"""		
 def generator(z,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("generator") as scope:
-		print("Setting up the decoder graph...")
+		print("Setting up the generator graph...")
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
 		c1 = batch_norm(convLayer(y, 1, 8, 7, 3,  update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 8 chhannels
 		c1 = tf.nn.relu(c1)
@@ -98,9 +98,9 @@ def sample_Z(N_BATCH, N_LAT):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\"
+	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
 	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cGAN"
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
