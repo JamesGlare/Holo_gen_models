@@ -7,9 +7,8 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/home/james/current_models/cVAE"
+path = "/home/james/Holo_project/cVAE_FORWARD"
 #######################################################################################
-
 
 def createDir_safely(baseDir, dirName):
 	fullPath = join(baseDir, dirName)
@@ -18,7 +17,13 @@ def createDir_safely(baseDir, dirName):
 
 
 def toNumber(string):
-	return int(string.replace("ov.png","" ))
+	try:
+		stripped_down = string.replace("ov.png","" )
+		result = int(stripped_down)
+		return result
+	except ValueError:
+		raise ValueError("Failure to convert to integer: " + stripped_down)
+	
 
 fileNumbers = []
 
@@ -78,7 +83,7 @@ min_error_image_dir = join(baseDir, "min_error_images")
 
 while getMinIndices.has_next():
 	file_nr = getMinIndices.next()
-	file_name = str(file_nr) +"ov.png"
+	file_name = "{0:03d}ov.png".format(file_nr)
 	src_file_name = join(baseDir, file_name)
 	dst_file_name = join(min_error_image_dir, file_name)
 	copyfile(src_file_name, dst_file_name)
