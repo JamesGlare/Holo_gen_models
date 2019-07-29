@@ -58,12 +58,12 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		concat = tf.concat([z,c], 1) # 512 + 16 = 528
 		
 		## dense layer -- probably required since not everything is local 
-		d1 = batch_norm(denseLayer(concat, 4, 512, update_collection=update_collection), name='bn4', is_training=train)
+		d1 = batch_norm(denseLayer(concat, 4, 400, update_collection=update_collection), name='bn4', is_training=train)
 		d1 = tf.nn.relu(d1)
 		## dropout from dense layers
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 5, 256, update_collection=update_collection), name='bn5', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 300, update_collection=update_collection), name='bn5', is_training=train)
 		d2 = tf.nn.relu(d2)
 
 		d3 = batch_norm(denseLayer(d2, 6, 200, update_collection=update_collection), name='bn6', is_training=train)
@@ -174,10 +174,10 @@ def main(argv):
 	N_BATCH = 100
 	N_VALID = 100	
 	N_REDRAW = 5	
-	N_EPOCH = 15
+	N_EPOCH = 20
 	N_LAT = 16
 	BETA = 1.0
-	ALPHA = 2.0
+	ALPHA = 1.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
 	print("Data set has length {}".format(N_SAMPLE))
