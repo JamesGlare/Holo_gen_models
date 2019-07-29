@@ -147,8 +147,8 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = r"C:\Jannes\learnSamples\290719_testSet"
-	outPath = r"C:\Jannes\learnSamples\290719_testSet\models\cVAE_FORWARD_specNorm"
+	path = r"C:\Jannes\learnSamples\290719_testSet_2"
+	outPath = r"C:\Jannes\learnSamples\290719_testSet_2\models\cVAE_FORWARD_specNorm"
 	restore = True ### Set this True to load model from disk instead of training
 	testSet = True
 	#############################################################################

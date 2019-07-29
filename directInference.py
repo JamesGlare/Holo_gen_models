@@ -108,10 +108,10 @@ We have two folders path/out and path/inFourier.
 """
 
 ### Change paths ######################################################
-path =  "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
-outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\expert"
-N_VALID = 100
-testSet = False
+path =  r"C:\Jannes\learnSamples\290719_testSet_2"
+outPath = r"C:\Jannes\learnSamples\290719_testSet_2\models\expert"
+N_VALID = 500
+testSet = True
 #######################################################################
 
 def main(argv):
@@ -124,7 +124,7 @@ def main(argv):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 	## create data object
-	data = data_obj(path, shuffle_data = False)
+	data = data_obj(path, shuffle_data = False, test_set = testSet)
 	phase_estimate = np.zeros((8,8))
 	""" Linear regression of F_p(I_p) relation
 		Has to be done once in the beginning of the project. 
@@ -144,7 +144,7 @@ def main(argv):
 	x_rel = [ 0.1304418,  -2.8861863]		## x-relative scaling
 	y_rel = [ 0.12246955,  -2.09014078]		## y-relative scaling
 	A = 1.0									## coefficient to relate peak intensity to coefficients
-	max_coeff = 0.2							## threshold coefficient -> multiplied with max value to obtain threshold
+	max_coeff = 0.3							## threshold coefficient -> multiplied with max value to obtain threshold
 
 	mu_y = lambda cy : int(restrict(y_rel[0]*cy + y_rel[1]))
 	mu_x = lambda cx : int(restrict(x_rel[0]*cx + x_rel[1]))
