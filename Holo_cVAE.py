@@ -142,9 +142,9 @@ def main(argv):
 	tf.set_random_seed(42)
 	eta = 1e-4
 	N_BATCH = 100
-	N_VALID = 100	
+	N_VALID = 500	
 	N_REDRAW = 5	
-	N_EPOCH = 15
+	N_EPOCH = 20
 	N_LAT = 16
 	BETA = 2.0
 	## sample size

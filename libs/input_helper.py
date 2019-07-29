@@ -66,8 +66,9 @@ class save_on_exit(object):
 
 class data_obj(object):
       
-      def __init__(self, path, shuffle_data=True):
+      def __init__(self, path, shuffle_data=True, test_set = False):
         self.path = path
+        self.test_set = test_set ## a test set only contains output folder
         self.minFileNr = 0  ## can be used as offset if file numbers do not begin at 0
         self.re_fourier_folder = "inFourier"  ## folder in which absolute values are located (naming is historical)
         self.im_fourier_folder = "inFourierIm"  ## folder in which phase values are located
@@ -83,17 +84,19 @@ class data_obj(object):
         self._check_folders()
 	
       def _check_folders(self):
-            if not os.path.exists(os.path.join(self.path, self.re_fourier_folder)):
-                  print("Absolute z folder not found.")
-                  sys.exit()
-            elif not os.path.exists(os.path.join(self.path, self.im_fourier_folder)):
-                  print("z-phase folder not found.")
-                  sys.exit()
-            elif not os.path.exists(os.path.join(self.path, self.output_folder)):
+            
+            if not os.path.exists(os.path.join(self.path, self.output_folder)):
                   print("Output folder not found.")
                   sys.exit()
-            else:
-                  print("Data object constructed.")
+            if not self.test_set:
+                  if not os.path.exists(os.path.join(self.path, self.im_fourier_folder)):
+                        print("z-phase folder not found.")
+                        sys.exit()
+                  elif not os.path.exists(os.path.join(self.path, self.re_fourier_folder)):
+                        print("Absolute z folder not found.")
+                        sys.exit()
+                  else:
+                        print("Data object constructed.")
             
       def _load_abs_fourier(self, x,nr) :
             return 1.0/255 * load_files(os.path.join(self.path, self.re_fourier_folder), nr, self.minFileNr+ x, self.indices)
