@@ -49,18 +49,18 @@ def Gaussian(A, mu_x, mu_y, var_x, var_y, cov_x_y):
 	
 
 ## set some parameters
-max_peaks = 3
+max_peaks = 5
 min_var = 50
 max_var = 65
 
-mu_min= 24
-mu_max = 70 ## x/y asymmetry
+mu_min= 20
+mu_max = 80 ## x/y asymmetry
 
 min_int = 40
-max_int = 200 # intensity budget
+max_int = 240 # intensity budget
 
-n_sample = 200
-outPath = "/media/james/SSD2_JG754/030619_testSet/"
+n_sample = 500
+outPath = "C:\\Jannes\\learnSamples\\290719_testSet"
 
 if not os.path.exists(outPath):
     	os.makedirs(outPath)
@@ -72,7 +72,7 @@ for k in range(0, n_sample):
 	curr_int = max_int/np.sqrt(n_peak)
 
 	for i in range(0, n_peak):
-		a = np.random.uniform(min_int, curr_int)
+		a = np.random.uniform(min_int, min(240, curr_int) )
 		#curr_int = max(curr_int - a, min_int) ## reduce available intensity budget
 
 		var_x = np.random.uniform(min_var, max_var)
