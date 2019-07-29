@@ -98,10 +98,10 @@ def sample_Z(N_BATCH, N_LAT):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cGAN"
+	path = r"C:\Jannes\learnSamples\290719_testSet_2"
+	outPath = r"C:\Jannes\learnSamples\290719_testSet_2\models\cGAN"
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = False
+	testSet = True
 	#############################################################################
 	
 	## Check PATHS
@@ -112,7 +112,7 @@ def main(argv):
 		print("MODEL/OUTPUT PATH DOESN'T EXIST!")
 		sys.exit()
 	### Define file load functions
-	data = data_obj(path, shuffle_data= not (restore or testSet) )
+	data = data_obj(path, shuffle_data= not (restore or testSet), test_set=testSet )
 
 	save_name = "HOLOGAN.ckpt"
 	save_string = os.path.join(outPath, save_name)
@@ -122,7 +122,7 @@ def main(argv):
 	eta_D = 0.0001
 	eta_G = 0.0001
 	N_BATCH = 100
-	N_VALID = 100	
+	N_VALID = 500	
 	N_CRITIC = 5
 	N_REDRAW = 5	
 	N_EPOCH = 15

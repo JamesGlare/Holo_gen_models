@@ -118,10 +118,10 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\validation"
-	outPath = "C:\\Jannes\\learnSamples\\190719_blazedGrating_phase_redraw\\models\\cVAE"
+	path = r"C:\Jannes\learnSamples\290719_testSet_2"
+	outPath = r"C:\Jannes\learnSamples\290719_testSet_2\models\cVAE"
 	restore = True ### Set this True to load model from disk instead of training
-	testSet = False
+	testSet = True
 	#############################################################################
 	
 	## Check PATHS
@@ -133,7 +133,7 @@ def main(argv):
 		sys.exit()
 
 	### Define file load functions
-	data = data_obj(path, shuffle_data= not (restore or testSet) )
+	data = data_obj(path, shuffle_data= not (restore or testSet), test_set=testSet)
 
 	save_name = "HOLOVAE.ckpt"
 	save_string = os.path.join(outPath, save_name)
