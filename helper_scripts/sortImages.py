@@ -10,13 +10,15 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/home/james/Holo_project/cVAE_FORWARD"
-_TEXT = False	## label images
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
+_TEXT = True	## label images
+_WHITE = False
 ###############################################################################
 class overviewImage:
 
-	def __init__(self, text=False, printHolo=False):
+	def __init__(self, text=False, printHolo=False, whiten=False):
 		self.print_holo = printHolo
+		self.white = whiten
 		self.text = text
 		self.margin_x = 5
 		self.margin_y = 5
@@ -35,8 +37,9 @@ class overviewImage:
 			return 3*self.margin_x+self.fourier_x+self.pic_x
 
 	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred_abs, fourier_pred_phase, fourier_real_abs, fourier_real_phase):
-		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()))
-		out_image = self.__whiten(out_image)
+		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()), 'black')
+		if self.white:
+			out_image = self.__whiten(out_image)
 		## the paste command needs the upper left corner (x,y)	
 
 		## (1) Resize the fourier images
@@ -201,7 +204,7 @@ for f in f_names:
 if file_nr:
 	nrImages = len(file_nr)
 
-	ovImage = overviewImage(text=_TEXT) ## create overview image instance
+	ovImage = overviewImage(text=_TEXT, whiten=_WHITE) ## create overview image instance
 
 	createDir_safely(path, "overviewImages")
 	curr_nr = 0

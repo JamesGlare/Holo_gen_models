@@ -4,7 +4,7 @@ from os import listdir
 import numpy as np
 from math import log
 #######################################################################
-path = r"C:\Jannes\results\cVAE"
+path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
 #######################################################################
 subpath = join(path, "real_int")
 

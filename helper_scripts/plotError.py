@@ -7,8 +7,8 @@ from matplotlib import rc
 import matplotlib as mpl
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "C:\\Jannes\\results\\cVAE"
-n_step = 5
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
+n_step = 1
 ###############################################################################
 
 def minErrorGen(errorList, step=5):
