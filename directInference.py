@@ -108,10 +108,10 @@ We have two folders path/out and path/inFourier.
 """
 
 ### Change paths ######################################################
-path =  r"C:\Jannes\learnSamples\290719_testSet_2"
-outPath = r"C:\Jannes\learnSamples\290719_testSet_2\models\expert"
+path =  r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw"
+outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\expert"
 N_VALID = 500
-testSet = True
+testSet = False
 #######################################################################
 
 def main(argv):
