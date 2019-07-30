@@ -57,10 +57,10 @@ mu_min= 20
 mu_max = 80 ## x/y asymmetry
 
 min_int = 40
-max_int = 240 # intensity budget
+max_int = 300 # intensity budget
 
-n_sample = 500
-outPath = "C:\\Jannes\\learnSamples\\290719_testSet"
+n_sample = 1000
+outPath = "C:\\Jannes\\learnSamples\\290719_testSet_2"
 
 if not os.path.exists(outPath):
     	os.makedirs(outPath)
@@ -77,14 +77,14 @@ for k in range(0, n_sample):
 
 		var_x = np.random.uniform(min_var, max_var)
 		var_y = np.random.uniform(min_var, max_var)
-		cov_x_y = np.random.uniform(0, max_var/5)
+		cov_x_y = np.random.uniform(0, max_var/3)
 
 		mu_x = np.random.uniform(mu_min, mu_max)
 		mu_y = np.random.uniform(mu_min, mu_max)
 				
 		sample = sample + Gaussian(a, mu_x, mu_y, var_x, var_y, cov_x_y)
 
-	if k % 20 ==0:
+	if k % 100 ==0:
 		plot_int(sample)
 		print(k)
 	writeMatrix(outPath, k, sample)

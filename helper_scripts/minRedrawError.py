@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = "/home/james/Holo_project/cVAE_FORWARD"
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
 #######################################################################################
 
 def createDir_safely(baseDir, dirName):
