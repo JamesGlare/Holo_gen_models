@@ -95,8 +95,13 @@ def peak_loc_nr(intensity, max_coeff=0.2):
 
 def restrict(z, _min=0, _max=7):
 	return max( min(z, _max), _min)
-	
 
+def random_phase(abs, phase):
+    	
+	for i,j in np.ndindex(abs.shape):	
+		if abs[i,j] > 0.0:
+    			phase[i,j] = np.random.uniform()
+	return phase
 """
 We have two folders path/out and path/inFourier.
  (1) Get list of all file_names from one of them
@@ -111,6 +116,7 @@ We have two folders path/out and path/inFourier.
 path =  r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw"
 outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\expert"
 N_VALID = 500
+N_REDRAW = 5
 testSet = False
 #######################################################################
 
@@ -125,7 +131,6 @@ def main(argv):
 		sys.exit()
 	## create data object
 	data = data_obj(path, shuffle_data = False, test_set = testSet)
-	phase_estimate = np.zeros((8,8))
 	""" Linear regression of F_p(I_p) relation
 		Has to be done once in the beginning of the project. 
 	"""
@@ -168,12 +173,16 @@ def main(argv):
 			fourier_estimate[i,j] = restrict(value, _min=0.0, _max=1.0)
 		
 		## I don't know how to estimate phases. So, I just create an 8x8 matrix of zeros
-		fourier_estimate_aug = np.concatenate((fourier_estimate[:,: , None], phase_estimate[:, :, None]), axis=2) # [8,8,2]
-		## (3) plot
-		if testSet:
-			writeMatrices(outPath, nr, fourier_estimate_aug, intensity, fourier_estimate_aug)
-		else:
-			writeMatrices(outPath, nr, fourier_estimate_aug, intensity, np.squeeze(fourier)	)
+		for r in range(0, N_REDRAW):
+			file_nr = nr*N_REDRAW + r
+			phase_estimate = np.zeros((8,8))
+			phase_estimate = random_phase(fourier_estimate, phase_estimate)
+			fourier_estimate_aug = np.concatenate((fourier_estimate[:,: , None], phase_estimate[:, :, None]), axis=2) # [8,8,2]
+			## (3) plot
+			if testSet:
+				writeMatrices(outPath, file_nr, fourier_estimate_aug, intensity, fourier_estimate_aug)
+			else:
+				writeMatrices(outPath, file_nr, fourier_estimate_aug, intensity, np.squeeze(fourier)	)
 		
 if __name__ == "__main__":
 	main(sys.argv)
