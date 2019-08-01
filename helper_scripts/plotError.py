@@ -7,7 +7,7 @@ from matplotlib import rc
 import matplotlib as mpl
 """ ----- Library ----------------------------------------------------------------- """
 ###############################################################################
-path = "/media/james/Jannes private/290719_testSet/models/expert"
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE_FORWARD_specNorm_2"
 n_step = 5
 ###############################################################################
 

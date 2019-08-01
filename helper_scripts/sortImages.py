@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE_FORWARD_specNorm"
 _TEXT = False	## label images
 _WHITE = True
 ###############################################################################
