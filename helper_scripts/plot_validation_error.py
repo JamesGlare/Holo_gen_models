@@ -10,7 +10,7 @@ import matplotlib as mpl
 
 ###################################################################
 path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
-N_REDRAW = 1
+N_REDRAW = 5
 ###################################################################
 
 def minErrorGen(errorList, step=5):

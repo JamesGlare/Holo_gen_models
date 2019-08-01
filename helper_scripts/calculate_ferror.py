@@ -6,7 +6,7 @@ import numpy as np
 from math import log
 #######################################################################
 path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
-N_REDRAW = 1
+N_REDRAW = 5
 #######################################################################
 
 z1_abs_path = join(path, "real_fourier")
