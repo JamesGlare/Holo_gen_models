@@ -113,7 +113,7 @@ We have two folders path/out and path/inFourier.
 """
 
 ### Change paths ######################################################
-path =  r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw"
+path =  r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\validation"
 outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\expert"
 N_VALID = 500
 N_REDRAW = 5
