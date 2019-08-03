@@ -9,7 +9,7 @@ import matplotlib as mpl
 """
 
 ###################################################################
-path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cGAN_FORWARD"
 N_REDRAW = 5
 ###################################################################
 
@@ -44,33 +44,64 @@ def loadFile(fname, path):
         print("Failed to load file "+str(fname))
 
 def rel_err(err, total):
-    if total ==0.0 :
-        if err == 0.0:
+    if total < 10.0 : ## basically zero except for few hotpixels
+        if err < 200.0:
             return  0.0
         else:
             return err
     else:
-        return 100*float(err)/(total+0.01)
+        res = 100*float(err)/(total+0.01)
+        return res
 
 def if_zero_make_epsilon(arr):
     arr[ arr < 1 ] = 1
     return arr 
 
-""" ---------------------------------------------------------------
+""" --------------------------------------------------------------------
 """
-
 ## (1) Load error file
 err_file = loadFile("error.txt", path)
 #image_entropies = loadFile("image_entropies.txt", path)
 z_err_file = loadFile("z_error.txt", path)
+#int_err_file = loadFile("int_error.txt", path)
 
-int_err = err_file[:,0] #np.array([x for _,x in sorted(zip(image_entropies,err_file[:,0])) ]) 
+int_err = err_file[:,0]# np.array([x for _,x in sorted(zip(image_entropies,err_file[:,0])) ]) 
 I1 = err_file[:,1]#np.array([x for _,x in sorted(zip(image_entropies,err_file[:,1])) ]) 
 I2 = err_file[:,2] # intensity of new spot
 
 N_VALID = len(int_err)//N_REDRAW
 indices = range(0, N_VALID)
 print("N_VALID {}, N_REDRAW {}".format(N_VALID, N_REDRAW))
+
+
+""" ---------------------------------------------------------------
+"""
+## (0) Plot realignment error
+
+realign_err= loadFile("realign_error.txt", join(path, "../"))
+averag_realign_err = 100*np.divide(realign_err[0:2500:5,0],realign_err[0:2500:5,1])
+outtakes = averag_realign_err > 20.0
+averag_realign_err[outtakes] = 0.0
+print("realign_err {}".format(np.average(averag_realign_err)))
+
+fig = plt.figure( dpi=150, figsize=(3, 2.2))
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
+ax1 = fig.add_subplot(1,1,1)
+ax1.fill_between(indices, 0, averag_realign_err, color='darkred' ,  alpha=1)
+
+
+ax1.set_ylim(0, 1)
+ax1.set_xticks([0, 250, 500])
+ax1.set_xlabel(r'Data set index $i$', fontsize=11) 
+
+ax1.tick_params( direction="in", bottom=False, top=True, right=True)
+ax1.set_ylabel(r'$E_\mathbf{I} $ [$\%$]', fontsize=11)
+plt.show()
+
+""" ------------------------------------------------------------------
+"""
+
 ## (2) reform the intensity error
 single_draw_int_err = np.zeros((N_REDRAW, N_VALID))
 for n in range(0, N_REDRAW):
@@ -80,6 +111,13 @@ min_draw_int_err = np.array([rel_err(int_err[i], I1[i]) for i in minErrorGen(int
 max_draw_int_err = np.array([rel_err(int_err[i], I1[i]) for i in maxErrorGen(int_err, step=N_REDRAW)])
 
 std_draw_int_err = np.std(single_draw_int_err, axis=0)
+ 
+## there are some divisions by zero still - take them out
+outtakes = min_draw_int_err > 20.0
+min_draw_int_err[outtakes] = 0.0
+max_draw_int_err[outtakes] = 0.0
+
+print("Avg min I-error {0:.2f} +/-{1:.3f}".format(np.average(min_draw_int_err), np.average(std_draw_int_err)/np.sqrt(len(single_draw_int_err)/5) ))
 
 ## (3) Calculate the z-error
 if N_REDRAW > 1:

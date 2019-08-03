@@ -9,7 +9,7 @@ import matplotlib as mpl
 """
 
 ###################################################################
-path = "/media/james/Jannes private/290719_testSet/models/expert"
+path = "/media/james/Jannes private/290719_testSet/models/cVAE_FORWARD_specNorm"
 N_REDRAW = 5
 ###################################################################
 
@@ -76,6 +76,7 @@ for n in range(0, N_REDRAW):
 
 min_draw_int_err = np.array([rel_err(int_err[i], I1[i]) for i in minErrorGen(int_err, step=N_REDRAW)])
 max_draw_int_err = np.array([rel_err(int_err[i], I1[i]) for i in maxErrorGen(int_err, step=N_REDRAW)])
+std_draw_int_err = np.std(single_draw_int_err, axis=0)
 
 
 ## (4) Get a histogram
@@ -91,6 +92,7 @@ min_hist_outline_cumsum = min_hist_outline.cumsum()
 ## normalize to 1
 full_hist_int_cumsum = full_hist_int_cumsum/float(full_hist_int_cumsum[-1])
 min_hist_outline_cumsum = min_hist_outline_cumsum/float(min_hist_outline_cumsum[-1])
+print("Avg min I-error {0:.2f} +/-{1:.3f}".format(np.average(min_draw_int_err), np.average(std_draw_int_err)/np.sqrt(len(single_draw_int_err)/5) ))
 
 
 fig = plt.figure( dpi=150, figsize=(3, 1.5))
@@ -119,7 +121,8 @@ ax3.hist(min_draw_int_err, bins=np.linspace(0,20,n_bins), color='darkred' , alph
 ax3.tick_params( direction="in", top=True, right=True)
 ax3.set_xlabel(r'Value $E$ [$\%$]', fontsize=11) 
 ax3.set_ylabel(r'$P_{E}$', fontsize=11) 
-ax3.set_xticks([0, 10, 20])
+ax3.set_xlim([0, 10])
+ax3.set_xticks([0, 5, 10])
 
 #ax3.set_yticklabels(["0","", ".5", "", "1", ""])
 ax3.set_ylim(0, 0.5)

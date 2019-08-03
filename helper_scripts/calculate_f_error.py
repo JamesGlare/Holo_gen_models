@@ -1,11 +1,11 @@
-### calculate complex error over data set
+### calculatecomplex error over data set
 
 from os.path import join
 from os import listdir
 import numpy as np
 from math import log
 #######################################################################
-path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
+path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cGAN_FORWARD"
 N_REDRAW = 5
 #######################################################################
 
