@@ -14,7 +14,6 @@ from libs.ops import *
 def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 	with tf.variable_scope("forward", reuse=tf.AUTO_REUSE) as scope:
 		print("Setting up forward graph")
-
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) ## shoule be in this shape anyway
 		c1 = convLayer(x, 1, 4,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME")## 8x8 4 channels
 		c1 = tf.nn.relu(c1)
@@ -58,22 +57,23 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 		concat = tf.concat([z,c], 1) # 512 + 16 = 528
 		
 		## dense layer -- probably required since not everything is local 
-		d1 = batch_norm(denseLayer(concat, 4, 400, update_collection=update_collection), name='bn4', is_training=train)
+		d1 = batch_norm(denseLayer(concat, 4, 500, update_collection=update_collection), name='bn4', is_training=train)
 		d1 = tf.nn.relu(d1)
 		## dropout from dense layers
 		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
 		
-		d2 = batch_norm(denseLayer(do1, 5, 200, update_collection=update_collection), name='bn5', is_training=train)
+		d2 = batch_norm(denseLayer(do1, 5, 350, update_collection=update_collection), name='bn5', is_training=train)
 		d2 = tf.nn.relu(d2)
-
+		d3 = batch_norm(denseLayer(d2, 6, 200, update_collection=update_collection), name='bn6', is_training=train)
+		d3 = tf.nn.relu(d3)
 		## Final conv layers
-		d = tf.reshape(d2, [N_BATCH, 10, 10, 2])
+		d = tf.reshape(d3, [N_BATCH, 10, 10, 2])
 		## split in absolute and phase parts
 		d2_abs = d[:,:,:,0]
 		d2_phi = d[:,:,:,1]
 		## go through final conv layer(s) each to use/enforce locality
-		cf_abs = batch_norm(convLayer(d2_abs, 9, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn9', is_training=train) ## 8x8 1 channel
-		cf_phi = batch_norm(convLayer(d2_phi, 10, 1, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn10', is_training=train) ## 8x8 1 channel
+		cf_abs = batch_norm(convLayer(d2_abs[:,:,:,None], 9, 1, 3, 1, update_collection=update_collection), name='bn9', is_training=train) ## 8x8 1 channel
+		cf_phi = batch_norm(convLayer(d2_phi[:,:,:,None], 10, 1, 3, 1, update_collection=update_collection), name='bn10', is_training=train) ## 8x8 1 channel
 		# collapse channel dimension
 		cf_abs = tf.nn.relu( cf_abs ) ## absolute values, retain channel dimension...
 		cf_phi = tf.nn.relu( cf_abs)  ## angles, retain channel dimension...
@@ -140,10 +140,10 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw"
-	outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\cVAE_FORWARD_specNorm_2"
-	restore = False ### Set this True to load model from disk instead of training
-	testSet = False
+	path = r"C:\Jannes\learnSamples\290719_testSet"
+	outPath = r"C:\Jannes\learnSamples\290719_testSet\models\cVAE_FORWARD_specNorm_3"
+	restore = True ### Set this True to load model from disk instead of training
+	testSet = True
 	#############################################################################
 
 	## Check PATHS
@@ -162,8 +162,8 @@ def main(argv):
 
 	### Hyperparameters
 	tf.set_random_seed(42)
-	eta = 1e-4
-	eta_f = 1e-4
+	eta = 3e-4
+	eta_f = 3e-4
 	N_BATCH = 100
 	N_VALID = 500	
 	N_REDRAW = 5	
@@ -178,7 +178,7 @@ def main(argv):
 	""" --------------- Set up the graph ---------------------------------------------------------"""	
 	# Placeholder	
 	is_train = tf.placeholder(dtype=tf.bool, name="is_train")
-	Y = tf.placeholder(dtype=tf.float32, name="Y")
+	Y = tf.placeholder(shape=(N_BATCH, 100,100), dtype=tf.float32, name="Y")
 	X = tf.placeholder(shape=(N_BATCH, 8,8,2), dtype=tf.float32, name="X")
 	# ROUTE THE TENSORS
 	LAT = encoder(X, Y, is_train, N_LAT, N_BATCH)
@@ -268,14 +268,14 @@ def main(argv):
 						fileNr =  k*N_REDRAW + r
 						## draw new noise
 						x_pred = sess.run(X_HAT_VALID, feed_dict={Y:y, is_train: False})
-
 						## write the matrices to file
 						if testSet:
 							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x_pred[0,:,:]))
 						else:
 							#plotMatrices(np.squeeze(x_pred[0,:,:,0]), np.squeeze(x[0,:,:,0]), np.squeeze(x_pred[0,:,:,1]), np.squeeze(x[0,:,:,1]))					
 							writeMatrices(outPath, fileNr, np.squeeze(x_pred[0,:,:]), np.squeeze(y[0,:,:]), np.squeeze(x[0,:,:]))
-
+							#y_pred = sess.run(Y_HAT, feed_dict={X:x, is_train:False})
+							#plot_forward(y[0], y_pred[0])
 	print("DONE! :)")
 if __name__ == "__main__":
 	main(sys.argv)

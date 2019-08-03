@@ -127,9 +127,9 @@ def sample_Z(N_BATCH, N_LAT):
 """ --------------- Main function ------------------------------------------------------------"""	
 def main(argv):
 	#############################################################################
-	path = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw"
+	path = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\validation"
 	outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\cGAN_forward"
-	restore = False ### Set this True to load model from disk instead of training
+	restore = True ### Set this True to load model from disk instead of training
 	testSet = False
 	#############################################################################
 	
@@ -150,6 +150,7 @@ def main(argv):
 	tf.set_random_seed(42)
 	eta_D = 0.0001
 	eta_G = 0.0001
+	eta_f = 0.0001
 	N_BATCH = 100
 	N_VALID = 500	
 	N_CRITIC = 5
@@ -173,7 +174,7 @@ def main(argv):
 	X_FAKE = generator(Z,Y, is_train, N_LAT, N_BATCH) ## GENERATOR GRAPH
 	D_REAL = discriminator(X_REAL, Y, is_train, N_BATCH, update_collection="NO_OPS") ## REAL CRITIC GRAPH
 	D_FAKE = discriminator(X_FAKE,Y, is_train,N_BATCH, update_collection=None)
-	Y_HAT = forward(X, is_train, N_BATCH)
+	Y_HAT = forward(X_REAL, is_train, N_BATCH)
 	Y_HAT_HAT = forward(X_FAKE, is_train, N_BATCH)
 	
 	# Loss functions	
@@ -181,7 +182,6 @@ def main(argv):
 	Y_HAT_loss = tf.nn.l2_loss(Y_HAT_HAT-Y)
 	D_loss = tf.reduce_mean(tf.nn.softplus(D_FAKE) + tf.nn.softplus(-D_REAL))	
 	G_loss = tf.reduce_mean(tf.nn.softplus(-D_FAKE)) + BETA*tf.nn.l2_loss(X_FAKE-X_REAL)+ ALPHA*Y_HAT_loss
-
 	
 	# Group variables
 	#tvars = tf.trainable_variables()
@@ -199,7 +199,7 @@ def main(argv):
             learning_rate=eta_G, 
             beta1=0.5, 
             beta2=0.9).minimize(G_loss, var_list=G_vars)
-	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=FORW_var_list)
+	FORW_solver = tf.train.AdamOptimizer(learning_rate=eta_f).minimize(Y_loss, var_list=F_vars)
 
 	# Initializer
 	initializer = tf.global_variables_initializer() # get initializer   
@@ -216,12 +216,12 @@ def main(argv):
 			G_loss_array = [] # Generator loss
 			percent = 0
 			if not restore :
-    			print("Commencing pretraining...")
+				print("Commencing pretraining...")
 
 				for i in range(0, N_SAMPLE, N_BATCH):
 						x = data.load_fourier(i, N_BATCH)
 						y = data.load_output(i, N_BATCH)
-						sess.run(FORW_solver, feed_dict={X:x, Y:y, is_train:True})
+						sess.run(FORW_solver, feed_dict={X_REAL:x, Y:y, is_train:True})
 
 				print("Commencing training...")
 				for j in range(N_EPOCH):   	
@@ -231,6 +231,7 @@ def main(argv):
 						y = data.load_output(i, N_BATCH)
 						z = sample_Z(N_BATCH, N_LAT) 
 						sess.run(G_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
+						sess.run(FORW_solver, feed_dict={X_REAL: x, Y: y, Z: z, is_train: True})
 						
 						if i+(N_CRITIC-1)*N_BATCH < N_SAMPLE: ## make sure this is within the index bounds
 							## Train critic
