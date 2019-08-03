@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
-_TEXT = True	## label images
-_WHITE = False
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE_FORWARD_specNorm"
+_TEXT = False	## label images
+_WHITE = True
 ###############################################################################
 class overviewImage:
 
@@ -22,19 +22,21 @@ class overviewImage:
 		self.text = text
 		self.margin_x = 5
 		self.margin_y = 5
+		self.outer_margin_x = 15
+		self.outer_margin_y = 15
 		self.pic_x = 200
 		self.pic_y = 200
 		self.fourier_x = 200
 		self.fourier_y = 200
 		
 	def __totalY(self):
-		return 3*self.margin_y+2*self.pic_y
+		return 2*self.outer_margin_y+self.margin_y+2*self.pic_y
 
 	def __totalX(self):
 		if self.print_holo:
-			return 4*self.margin_x+self.fourier_x+2*self.pic_x
+			return 2*self.outer_margin_x+2*self.margin_x+self.fourier_x+2*self.pic_x
 		else:
-			return 3*self.margin_x+self.fourier_x+self.pic_x
+			return 2*self.outer_margin_x+self.margin_x+self.fourier_x+self.pic_x
 
 	def create_overview_image(self, int_pred, int_real, holo_pred, holo_real, fourier_pred_abs, fourier_pred_phase, fourier_real_abs, fourier_real_phase):
 		out_image = Image.new('RGB', (self.__totalX(), self.__totalY()), 'black')
@@ -53,18 +55,18 @@ class overviewImage:
 		fourier_real = self.__apply_phase_red(fourier_real_abs_resized, fourier_real_phase_resized)
 		
 		## (1.1) Paste the fourier prediction image
-		out_image.paste(fourier_pred, (self.margin_x, self.margin_y))
+		out_image.paste(fourier_pred, (self.outer_margin_x, self.outer_margin_y))
 		
 		## (1.2) Paste the fourier real image
-		out_image.paste(fourier_real, (self.margin_x, 2*self.margin_y + self.pic_y))
+		out_image.paste(fourier_real, (self.outer_margin_x, self.outer_margin_y+self.margin_y + self.pic_y))
 
 		## (2) paste the holo pred image
 		if self.print_holo:
-			out_image.paste(holo_pred, (2*self.margin_x+self.fourier_x, self.margin_y))
+			out_image.paste(holo_pred, (self.outer_margin_x+self.margin_x+self.fourier_x, self.outer_margin_y))
 		
 		## (3) paste the holo real image
 		if self.print_holo:
-			out_image.paste(holo_real, (2*self.margin_x+self.fourier_x, 2*self.margin_y + self.pic_y))
+			out_image.paste(holo_real, (self.outer_margin_x+self.margin_x+self.fourier_x, self.outer_margin_y+self.margin_y + self.pic_y))
 
 		## (4) Now, deal with the intensity images which should be scaled up!
 		int_pred_resized = int_pred.resize((self.pic_x, self.pic_y), Image.ANTIALIAS)
@@ -75,21 +77,21 @@ class overviewImage:
 
 		## (4.2) paste the int pred image
 		if self.print_holo:
-			x_pos = 3*self.margin_x + self.fourier_x+ self.pic_x
+			x_pos = self.outer_margin_x+2*self.margin_x + self.fourier_x+ self.pic_x
 		else:
-			x_pos = 2*self.margin_x + self.fourier_x
+			x_pos = self.outer_margin_x+self.margin_x + self.fourier_x
 				
-		out_image.paste(int_pred_resized, (x_pos, self.margin_y))		
+		out_image.paste(int_pred_resized, (x_pos, self.outer_margin_y))		
 		## (4.3) paste the int real image		
-		out_image.paste(int_real_resized, (x_pos, 2*self.margin_y + self.pic_y))
+		out_image.paste(int_real_resized, (x_pos, self.outer_margin_y+self.margin_y + self.pic_y))
 		
 		## OPTIONAL WRITE ON IMAGE
 		if self.text:
 			draw_img = ImageDraw.Draw(out_image)
-			draw_img.text((self.margin_x, self.margin_y), "Predicted f-matrix", fill=(235,235,235))
-			draw_img.text((self.margin_x, 2*self.margin_y + self.pic_y), "Original f-matrix", fill=(235,235,235))
-			draw_img.text((x_pos, self.margin_y), "Inverse intensity", fill=(235,235,235))
-			draw_img.text((x_pos, 2*self.margin_y + self.pic_y), "Original intensity", fill=(235,235,235))
+			draw_img.text((self.outer_margin_x, self.outer_margin_y), "Predicted f-matrix", fill=(235,235,235))
+			draw_img.text((self.outer_margin_x, self.outer_margin_y + self.margin_y + self.pic_y), "Original f-matrix", fill=(235,235,235))
+			draw_img.text((x_pos, self.outer_margin_y), "Inverse intensity", fill=(235,235,235))
+			draw_img.text((x_pos, self.outer_margin_y + self.margin_y + self.pic_y), "Original intensity", fill=(235,235,235))
 
 		return out_image		
 

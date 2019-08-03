@@ -9,7 +9,7 @@ import matplotlib as mpl
 """
 
 ###################################################################
-path = "/media/james/Jannes private/290719_testSet/models/cVAE_FORWARD_specNorm"
+path = "/media/james/Jannes private/290719_testSet/models/expert"
 N_REDRAW = 5
 ###################################################################
 
