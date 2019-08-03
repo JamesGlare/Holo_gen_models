@@ -184,3 +184,12 @@ def plotMatrices(x_pred, x, x_pred_phi, x_phi ):
     ax4.title.set_text("phi")
 
     plt.show()
+
+def plot_forward(y, ypred):
+      fig = plt.figure()
+      ax1 = fig.add_subplot(1,2,1)
+      ax1.imshow(y, cmap="Reds")
+      ax2 = fig.add_subplot(1,2,2)
+      ax2.imshow(ypred, cmap="Reds")
+
+      plt.show()
