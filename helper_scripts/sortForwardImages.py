@@ -84,13 +84,13 @@ class forwardOverviewImage:
 		int_real_color = self.__colorize(int_real)
 		int_real_color_resized = int_real_color.resize((self.__pic_x, self.__pic_y))
 
-		outImage.paste(int_real_color_resized, (self.__outer_margin_x +self.__margin_x +self.__pic_x, self.__outer_margin_y))
+		outImage.paste(int_real_color_resized, (self.__outer_margin_x , self.__outer_margin_y))
 	
 		## (3) paste the predicted intensity
 		int_pred_color = self.__colorize(int_pred)
 		int_pred_color_resized = int_pred_color.resize((self.__pic_x, self.__pic_y))
 
-		outImage.paste(int_pred_color_resized, (1*self.__outer_margin_x, self.__outer_margin_y))
+		outImage.paste(int_pred_color_resized, (1*self.__outer_margin_x+self.__margin_x +self.__pic_x, self.__outer_margin_y))
 		return outImage
 
 def openImage(fName):
