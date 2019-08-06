@@ -143,8 +143,8 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = r"C:\Jannes\learnSamples\290719_testSet"
-	outPath = r"C:\Jannes\learnSamples\290719_testSet\models\cVAE_model_forward_2"
+	path = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\validation"
+	outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\cVAE_model_forward_2"
 	restore = True ### Set this True to load model from disk instead of training
 	testSet = True
 	#############################################################################
