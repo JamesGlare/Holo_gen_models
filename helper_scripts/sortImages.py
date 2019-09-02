@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 ###############################################################################
-path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/expert"
+path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
 _TEXT = False	## label images
 _WHITE = True
 ###############################################################################
@@ -90,7 +90,7 @@ class overviewImage:
 			draw_img = ImageDraw.Draw(out_image)
 			draw_img.text((self.outer_margin_x, self.outer_margin_y), "Predicted f-matrix", fill=(235,235,235))
 			draw_img.text((self.outer_margin_x, self.outer_margin_y + self.margin_y + self.pic_y), "Original f-matrix", fill=(235,235,235))
-			draw_img.text((x_pos, self.outer_margin_y), "Inverse intensity", fill=(235,235,235))
+			draw_img.text((x_pos, self.outer_margin_y), "Reconstructed intensity", fill=(235,235,235))
 			draw_img.text((x_pos, self.outer_margin_y + self.margin_y + self.pic_y), "Original intensity", fill=(235,235,235))
 
 		return out_image		

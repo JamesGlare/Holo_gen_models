@@ -5,7 +5,7 @@ from os import listdir
 import numpy as np
 from math import log
 #######################################################################
-path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cGAN_FORWARD"
+path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE_model_forward_2"
 N_REDRAW = 5
 #######################################################################
 

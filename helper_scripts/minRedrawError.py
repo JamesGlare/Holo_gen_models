@@ -7,7 +7,7 @@ from shutil import copyfile
 import numpy as np
 
 #######################################################################################
-path = r"/media/james/Jannes private/290719_testSet/models/cVAE_FORWARD_specNorm"
+path = r"/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE"
 #######################################################################################
 
 def createDir_safely(baseDir, dirName):

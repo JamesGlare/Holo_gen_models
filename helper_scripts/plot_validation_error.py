@@ -9,7 +9,7 @@ import matplotlib as mpl
 """
 
 ###################################################################
-path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cGAN_FORWARD"
+path = "/media/james/Jannes private/190719_blazedGrating_phase_redraw/models/cVAE_model_forward_2"
 N_REDRAW = 5
 ###################################################################
 
