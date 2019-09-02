@@ -17,23 +17,23 @@ def forward(x, train, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS):
 		x = tf.reshape(x, [N_BATCH, 8,8,2]) ## shoule be in this shape anyway
 		c1 = convLayer(x, 1, 4,3,1, spec_norm=True,  update_collection=update_collection, padStr="SAME")## 8x8 4 channels
 		c1 = tf.nn.relu(c1)
-		c2 = convLayer(c1, 2, 4,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 4 channels
+		c2 = convLayer(c1, 2, 8,3,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 8 channels
 		c2 = tf.nn.relu(c2)
-        ## Dense Layer
-		c = tf.reshape(c2, [N_BATCH, 8*8*4])
-
-		# dropout
-		do1 = tf.layers.dropout(c, rate=0.2, training=train)
-		# a single dense layer to account for nonlocal effects
-		d1 = denseLayer(do1, 4, 800, spec_norm=True, update_collection=update_collection)
-		d1 = tf.nn.relu(d1)
-
-		d = tf.reshape(d1, [N_BATCH, 10,10,8])
+		c3 = convLayer(c2, 3, 16,5,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 16 channels
+		c3 = tf.nn.relu(c3)
 		
+		# dropout
+		do = tf.layers.dropout(c3, rate=0.2, training=train)
+		# a single dense layer to account for nonlocal effects
+		c4 = convLayer(do, 4, 16, 5,1,  spec_norm=True, update_collection=update_collection, padStr="SAME") ## 8x8 16 channels
+		c4 = tf.nn.relu(c4)
+
 		## Deconvolution Layers
-		dc1 =  deconvLayer(d, 6, [N_BATCH, 32,32,8], 5, 3, spec_norm=True, update_collection=update_collection )# 32x32, 4 channels
+		dc0 =  deconvLayer(c4, 5, [N_BATCH, 10,10, 16], 3, 1, spec_norm=True, update_collection=update_collection )# 10x10, 16 channels
+		dc0 = tf.nn.relu(dc0)
+		dc1 =  deconvLayer(dc0, 6, [N_BATCH, 32,32,8], 5, 3, spec_norm=True, update_collection=update_collection )# 32x32, 8 channels
 		dc1 = tf.nn.relu(dc1)
-		dc2 =  deconvLayer(dc1, 7, [N_BATCH, 100,100,8], 7, 3, spec_norm=True, update_collection=update_collection)# 100x100, 4 channels
+		dc2 =  deconvLayer(dc1, 7, [N_BATCH, 100,100,8], 7, 3, spec_norm=True, update_collection=update_collection)# 100x100, 8 channels
 		dc  = tf.reduce_mean(dc2, 3) ## collapse channels 		
 		
 		y = tf.nn.relu(dc) ## [-1, 100, 100]
@@ -44,42 +44,45 @@ def decoder(z, y, train, N_LAT, N_BATCH,  update_collection=tf.GraphKeys.UPDATE_
 	with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE) as scope:
 		print("Setting up the decoder graph...")
 		y = tf.reshape(y, [N_BATCH, 100, 100,1])
-		c1 = batch_norm(convLayer(y, 1, 8, 7, 3,  update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 8 chhannels
+		c1 = batch_norm(convLayer(y, 1, 12, 7, 3,  update_collection=update_collection), name='bn1', is_training=train) ## 32x32, 8 chhannels
 		c1 = tf.nn.relu(c1)
-		c2 = batch_norm(convLayer(c1, 2, 8, 5, 3,  update_collection=update_collection), name='bn2', is_training=train) ## 10x10 8 channels
+		c2 = batch_norm(convLayer(c1, 2, 16, 5, 3,  update_collection=update_collection), name='bn2', is_training=train) ## 10x10 8 channels
 		c2 = tf.nn.relu(c2) 
 		do0 = tf.layers.dropout(c2, rate=0.2, training=train)		
-		c3 = batch_norm(convLayer(do0, 3, 8, 3, 1,  update_collection=update_collection), name='bn3', is_training=train) ## 8x8 8 channels
+		c3 = batch_norm(convLayer(do0, 3, 16, 3, 1,  update_collection=update_collection), name='bn3', is_training=train) ## 8x8 8 channels
 		c3 = tf.nn.relu(c3) 
 		## Now combine with the latent variables
-		z = tf.reshape(z, [N_BATCH, N_LAT]) # latent space, linear
-		c = tf.reshape(c3, [N_BATCH, 512]) ## 8x8x8 = 512
-		concat = tf.concat([z,c], 1) # 512 + 16 = 528
+		z = tf.tile(z, [8,8])
+		z = tf.reshape(z, [N_BATCH, 8,8,1]) # latent space, linear
+		c = tf.reshape(c3, [N_BATCH, 8,8,16]) ## 8x8x8 = 512
+		concat = tf.concat([z,c], 3) # 512 + 16 = 528
 		
 		## dense layer -- probably required since not everything is local 
-		d1 = batch_norm(denseLayer(concat, 4, 500, update_collection=update_collection), name='bn4', is_training=train)
-		d1 = tf.nn.relu(d1)
-		## dropout from dense layers
-		do1 = tf.layers.dropout(d1, rate=0.2, training=train)
-		
-		d2 = batch_norm(denseLayer(do1, 5, 350, update_collection=update_collection), name='bn5', is_training=train)
-		d2 = tf.nn.relu(d2)
-		d3 = batch_norm(denseLayer(d2, 6, 200, update_collection=update_collection), name='bn6', is_training=train)
-		d3 = tf.nn.relu(d3)
+		c4 = batch_norm(convLayer(concat, 4, 16, 3, 1,  update_collection=update_collection, padStr="SAME"), name='bn4', is_training=train) ## 8x8 8 channels
+		c4 = tf.nn.relu(c4)
+		c5 = batch_norm(convLayer(c4, 5, 16, 3, 1,  update_collection=update_collection, padStr="SAME"), name='bn5', is_training=train) ## 8x8 8 channels
+		c5 = tf.nn.relu(c4)
+		c6 = batch_norm(convLayer(c5, 6, 16, 3, 1,  update_collection=update_collection, padStr="SAME"), name='bn6', is_training=train) ## 8x8 8 channels
+		c6 = tf.nn.relu(c6)
+		do1 = tf.layers.dropout(c6, rate=0.2, training=train)		
+
 		## Final conv layers
-		d = tf.reshape(d3, [N_BATCH, 10, 10, 2])
 		## split in absolute and phase parts
-		d2_abs = d[:,:,:,0]
-		d2_phi = d[:,:,:,1]
+		d2_abs = do1[:,:,:,0:8]
+		d2_phi = do1[:,:,:,8:16]
 		## go through final conv layer(s) each to use/enforce locality
-		cf_abs = batch_norm(convLayer(d2_abs[:,:,:,None], 9, 1, 3, 1, update_collection=update_collection), name='bn9', is_training=train) ## 8x8 1 channel
-		cf_phi = batch_norm(convLayer(d2_phi[:,:,:,None], 10, 1, 3, 1, update_collection=update_collection), name='bn10', is_training=train) ## 8x8 1 channel
+		cf_abs = batch_norm(convLayer(d2_abs, 7, 8, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn7', is_training=train) ## 8x8 4 channel
+		cf_phi = batch_norm(convLayer(d2_phi, 8, 8, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn8', is_training=train) ## 8x8 4 channel
+		cf_abs = tf.nn.relu(cf_abs)
+		cf_phi = tf.nn.relu(cf_phi)
+		cf_abs = batch_norm(convLayer(cf_abs, 9, 8, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn9', is_training=train) ## 8x8 1 channel
+		cf_phi = batch_norm(convLayer(cf_phi, 10, 8, 3, 1, update_collection=update_collection, padStr="SAME"), name='bn10', is_training=train) ## 8x8 1 channel
 		# collapse channel dimension
-		cf_abs = tf.nn.relu( cf_abs ) ## absolute values, retain channel dimension...
-		cf_phi = tf.nn.relu( cf_abs)  ## angles, retain channel dimension...
+		cf_abs = tf.nn.relu( tf.reduce_mean(cf_abs, axis=3) ) ## absolute values, retain channel dimension...
+		cf_phi = tf.nn.relu( tf.reduce_mean(cf_phi, axis=3) ) ## angles, retain channel dimension...
 		
 		## final reshaping and return prediction
-		x_hat = tf.concat([cf_abs, cf_phi], axis=3) ## ... in order to be able to concat along it.
+		x_hat = tf.concat([cf_abs[:,:,:,None], cf_phi[:,:,:,None]], axis=3) ## ... in order to be able to concat along it.
 		return x_hat
 """ --------------- ENCODER Graph --------------------------------------------------------------"""		
 def encoder(x,y, train, N_LAT, N_BATCH, update_collection=tf.GraphKeys.UPDATE_OPS): ## output some gaussian parameters
@@ -140,8 +143,8 @@ def setup_vae_loss(x, x_hat, lat, BETA, N_SAMPLE, N_EPOCH, N_BATCH):
 def main(argv):
 
 	#############################################################################
-	path = r"C:\Jannes\learnSamples\290719_testSet"
-	outPath = r"C:\Jannes\learnSamples\290719_testSet\models\cVAE_FORWARD_specNorm_3"
+	path = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\validation"
+	outPath = r"C:\Jannes\learnSamples\190719_blazedGrating_phase_redraw\models\cVAE_model_forward_2"
 	restore = True ### Set this True to load model from disk instead of training
 	testSet = True
 	#############################################################################
@@ -162,15 +165,15 @@ def main(argv):
 
 	### Hyperparameters
 	tf.set_random_seed(42)
-	eta = 3e-4
-	eta_f = 3e-4
+	eta = 1e-4
+	eta_f = 1e-4
 	N_BATCH = 100
 	N_VALID = 500	
 	N_REDRAW = 5	
-	N_EPOCH = 20
-	N_LAT = 16
+	N_EPOCH = 15
+	N_LAT = 1
 	BETA = 1.0
-	ALPHA = 4.0
+	ALPHA = 1.0
 	## sample size
 	N_SAMPLE = data.maxFile-N_BATCH
 	print("Data set has length {}".format(N_SAMPLE))
